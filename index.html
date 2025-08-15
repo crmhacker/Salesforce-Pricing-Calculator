@@ -1,600 +1,692 @@
-// Salesforce Sales Cloud Pricing Calculator — CRM Hacker
-// Last updated: 2025-08-15
-// Built for: crmhacker.com
-// Notes:
-// - Uses TailwindCSS + shadcn/ui + lucide-react + recharts.
-// - Drop this file into a Next.js/React app and install deps below.
-// - Deps to install:
-//   npm i recharts lucide-react
-//   npx shadcn@latest add card button input label select switch badge slider separator textarea
-// - Tailwind brand accent used here = emerald. Tweak classes or set CSS variables to match your palette.
-// - Pricing data is sourced from Salesforce public pricing pages and meant for estimation only. Always validate with an AE.
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>CRM Hacker – LinkedIn Text Formatter + Hashtag Optimizer</title>
+  <meta name="description" content="LinkedIn text formatter and hashtag optimizer for CRM Hacker: selection-aware toggles, bold/italic/underline/strike, lists, quotes, Unicode fonts, overlays, transforms, sorting, recommendations, randomize, copy, schedule & post, mobile responsive.">
+  <style>
+    :root{
+      --accent:#ff2c2c; --accent-2:#ff5858;
+      --bg:#faf9f7; --panel:#ffffff;
+      --ink:#222; --muted:#555; --line:#ddd;
+      --ok:#18c37d; --warn:#b25b00; --li-blue:#0a66c2;
+      --pill:#f5f7ff;
+    }
+    *{box-sizing:border-box} html,body{height:100%}
+    body{margin:0;background:var(--bg);color:var(--ink);font-family:Inter,system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-serif}
+    a{color:var(--accent)}
+    .wrap{max-width:1280px;margin:28px auto;padding:0 16px}
 
-import React, { useMemo, useState } from "react";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { Switch } from "@/components/ui/switch";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Badge } from "@/components/ui/badge";
-import { Separator } from "@/components/ui/separator";
-import { Slider } from "@/components/ui/slider";
-import { Info, Wand2, DollarSign, Copy, LineChart, ShieldCheck, Mail, DownloadCloud } from "lucide-react";
-import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip } from "recharts";
+    .topbar{display:flex;align-items:center;gap:12px;margin-bottom:14px}
+    .topbar img{
+      height:54px;width:auto;background:var(--bg);
+      border-radius:10px;padding:3px;border:1px solid var(--line);
+      box-shadow:0 2px 8px rgba(0,0,0,.06)
+    }
+    .brand h1{margin:0;font-size:24px}
+    .tag{color:var(--muted);font-size:12px}
 
-// -------------------------------
-// Pricing Catalog (USD) — editable
-// -------------------------------
-const PRICING = {
-  editions: {
-    starter: { key: "starter", name: "Starter Suite", price: 25, notes: "Billed annually; up to 10 users is common but confirm.", per: "user" },
-    pro: { key: "pro", name: "Pro Suite", price: 100, notes: "API not included by default.", per: "user" },
-    enterprise: { key: "enterprise", name: "Enterprise", price: 175, per: "user" },
-    unlimited: { key: "unlimited", name: "Unlimited", price: 350, notes: "Premier Success bundled.", per: "user" },
-    agentforce1: { key: "agentforce1", name: "Agentforce 1 Sales", price: 550, notes: "Everything in Unlimited + full AI suite + credits.", per: "user" },
-  },
-  addons: {
-    apiAddOn: { key: "apiAddOn", name: "Web Services API (Pro Suite)", price: 25, per: "user", requiresEdition: ["pro"], hint: "Needed for integrations on Pro Suite." },
-    salesEngagement: { key: "salesEngagement", name: "Sales Engagement", price: 50, per: "user", hint: "Cadences, dialer, automations (starts at $50)." },
-    conversationIntelligence: { key: "conversationIntelligence", name: "Einstein Conversation Insights", price: 50, per: "user" },
-    revenueIntelligence: { key: "revenueIntelligence", name: "Revenue Intelligence", price: 220, per: "user", hint: "Advanced forecasting + pipeline analytics." },
-    revenueCloud: { key: "revenueCloud", name: "Revenue Cloud (CPQ/Billing)", price: 200, per: "user", hint: "Configure-Price-Quote & Billing." },
-    maps: { key: "maps", name: "Salesforce Maps", price: 75, per: "user" },
-    salesPrograms: { key: "salesPrograms", name: "Sales Programs", price: 100, per: "user" },
-    emailsAlerts: { key: "emailsAlerts", name: "Sales Emails & Alerts", price: 50, per: "user" },
-    prmLogins: { key: "prmLogins", name: "Partner Relationship Management", price: 10, per: "login", hint: "$10 per partner login/month" },
-  },
-  successPlans: {
-    standard: { key: "standard", name: "Standard (included)", rate: 0, note: "Included with all editions." },
-    premier: { key: "premier", name: "Premier (+30% of license)", rate: 0.3, note: "30% of net license fees. Included with Unlimited." },
-    signature: { key: "signature", name: "Signature (contact sales)", rate: null },
-  },
-  implementation: {
-    none: { key: "none", name: "No Implementation Package", fee: 0 },
-    basic: { key: "basic", name: "Quick Start (CRM Hacker)", fee: 10000 },
-    standard: { key: "standard", name: "Standard (CRM Hacker)", fee: 25000 },
-    advanced: { key: "advanced", name: "Advanced (CRM Hacker)", fee: 50000 },
-  },
-};
+    .grid{display:grid;grid-template-columns:1.15fr .85fr;gap:16px}
+    @media (max-width:1024px){.grid{grid-template-columns:1fr;gap:12px}}
 
-const BRAND = {
-  primary: "emerald", // Tailwind accent color; change to match brand
-  ring: "ring-emerald-400",
-  btn: "bg-emerald-600 hover:bg-emerald-700",
-  text: "text-emerald-600",
-};
+    .card{background:var(--panel);border:1px solid var(--line);border-radius:12px;box-shadow:0 4px 14px rgba(0,0,0,.05)}
+    .pad{padding:14px}
+    .divider{height:1px;background:var(--line);margin:12px 0}
+    .muted{color:var(--muted);font-size:12px}
 
-// Utility
-const currency = (n: number) => n.toLocaleString(undefined, { style: "currency", currency: "USD", maximumFractionDigits: 0 });
+    textarea{
+      width:100%;min-height:200px;background:#fff;color:var(--ink);
+      border:1px solid var(--line);border-radius:10px;padding:12px 14px;font-size:16px;outline:none;resize:vertical
+    }
+    @media (max-width:600px){ textarea{min-height:180px;font-size:16px} }
 
-// Types
-type EditionKey = keyof typeof PRICING.editions;
-type SuccessKey = keyof typeof PRICING.successPlans;
-type ImplKey = keyof typeof PRICING.implementation;
+    .controls{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-top:8px}
+    .btn{
+      background:#f6f6f6;border:1px solid var(--line);color:var(--ink);
+      padding:8px 10px;border-radius:10px;font-weight:600;cursor:pointer;font-size:14px
+    }
+    .btn:hover{background:#eee}
+    .btn.primary{background:var(--accent);border-color:var(--accent-2);color:#fff}
+    .btn.good{background:var(--ok);border-color:#27da97;color:#fff}
+    .btn.link{background:#fff;border:1px dashed var(--line)}
+    .btn.ghost{background:#fff}
 
-export default function SalesforcePricingCalculator() {
-  // Identity for personalization
-  const [firstName, setFirstName] = useState("");
-  const [lastName, setLastName] = useState("");
-  const [company, setCompany] = useState("");
-  const [email, setEmail] = useState("");
-
-  // Core inputs
-  const [users, setUsers] = useState<number>(15);
-  const [edition, setEdition] = useState<EditionKey>("enterprise");
-  const [successPlan, setSuccessPlan] = useState<SuccessKey>("standard");
-  const [impl, setImpl] = useState<ImplKey>("standard");
-
-  // Add-on toggles
-  const [addons, setAddons] = useState<Record<string, any>>({
-    apiAddOn: false,
-    salesEngagement: true,
-    conversationIntelligence: false,
-    revenueIntelligence: true,
-    revenueCloud: false,
-    maps: false,
-    salesPrograms: false,
-    emailsAlerts: false,
-    prmLogins: 0,
-  });
-
-  // Needs-based signals (for Recommend)
-  const [signals, setSignals] = useState({
-    needIntegrationsAPI: true,
-    quotingComplexity: 2, // 0 = simple, 1 = moderate, 2 = complex
-    forecastingMaturity: 1, // 0 basic, 1 growing, 2 advanced
-    fieldSales: 0, // 0 no, 1 some, 2 heavy
-    outboundCadence: 1, // 0 no, 1 yes, 2 yes+call recording review
-    channelPartners: 0, // # of partner users/logins estimate bucket
-    aiPriority: 1, // 0 low, 1 medium, 2 high
-    budgetSensitivity: 1, // 0 high budget, 1 balanced, 2 cost-sensitive
-    teamSize: 15, // used to infer Starter/Pro viability
-  });
-
-  // Derived: Edition price
-  const editionPrice = PRICING.editions[edition].price;
-
-  // Compute totals
-  const compute = useMemo(() => {
-    const perUserAddOns = [
-      ...(addons.apiAddOn && edition === "pro" ? [PRICING.addons.apiAddOn] : []),
-      ...(addons.salesEngagement ? [PRICING.addons.salesEngagement] : []),
-      ...(addons.conversationIntelligence ? [PRICING.addons.conversationIntelligence] : []),
-      ...(addons.revenueIntelligence ? [PRICING.addons.revenueIntelligence] : []),
-      ...(addons.revenueCloud ? [PRICING.addons.revenueCloud] : []),
-      ...(addons.maps ? [PRICING.addons.maps] : []),
-      ...(addons.salesPrograms ? [PRICING.addons.salesPrograms] : []),
-      ...(addons.emailsAlerts ? [PRICING.addons.emailsAlerts] : []),
-    ];
-
-    const licenseMonthly = users * editionPrice;
-    const addonsMonthly = perUserAddOns.reduce((sum, a) => sum + users * a.price, 0) + (addons.prmLogins || 0) * PRICING.addons.prmLogins.price;
-
-    // Success plan calculation applies to license + add-ons (net license fees). Unlimited bundles Premier (0% extra)
-    const successCfg = PRICING.successPlans[successPlan];
-    const baseForSuccess = licenseMonthly + addonsMonthly;
-    const successMonthly = successCfg.rate ? baseForSuccess * successCfg.rate : 0;
-
-    // Unlimited always includes Premier; enforce if user chose premier with Unlimited
-    const effectiveSuccessMonthly = edition === "unlimited" && successPlan === "premier" ? 0 : successMonthly;
-
-    const monthlyTotal = licenseMonthly + addonsMonthly + effectiveSuccessMonthly;
-    const annualTotal = monthlyTotal * 12;
-    const oneTime = PRICING.implementation[impl].fee;
-
-    // Breakdown for chart
-    const breakdown = [
-      { name: "Licenses", value: Math.round(licenseMonthly) },
-      { name: "Add-ons", value: Math.round(addonsMonthly) },
-      { name: "Success Plan", value: Math.round(effectiveSuccessMonthly) },
-    ];
-
-    return {
-      licenseMonthly,
-      addonsMonthly,
-      successMonthly: effectiveSuccessMonthly,
-      monthlyTotal,
-      annualTotal,
-      oneTime,
-      breakdown,
-    };
-  }, [users, edition, editionPrice, addons, successPlan, impl]);
-
-  // Recommendation Engine — heuristic rules
-  function recommend() {
-    const s = { ...signals };
-    const next: any = { edition, addons: { ...addons } };
-
-    // Edition
-    if (s.aiPriority === 2 && s.teamSize >= 25) {
-      next.edition = "agentforce1";
-    } else if (s.quotingComplexity === 2 || s.needIntegrationsAPI) {
-      next.edition = "enterprise"; // Enterprise is the sweet spot for flexibility + API
-    } else if (s.teamSize <= 10 && s.budgetSensitivity === 2) {
-      next.edition = "starter";
-    } else if (s.teamSize <= 20 && s.budgetSensitivity >= 1) {
-      next.edition = "pro";
-    } else {
-      next.edition = "enterprise";
+    @media (max-width:600px){
+      .controls{gap:6px}
+      .btn{padding:12px 14px;border-radius:12px}
+      .controls .btn{flex:1 1 calc(50% - 6px)}
+      .controls .btn.primary{flex-basis:100%}
     }
 
-    // Add-ons
-    next.addons.salesEngagement = s.outboundCadence >= 1;
-    next.addons.conversationIntelligence = s.outboundCadence === 2;
-    next.addons.revenueIntelligence = s.forecastingMaturity >= 1; // growing or advanced
-    next.addons.revenueCloud = s.quotingComplexity === 2;
-    next.addons.maps = s.fieldSales >= 1;
-    next.addons.salesPrograms = s.outboundCadence >= 1 && s.teamSize >= 15;
-    next.addons.emailsAlerts = false; // optional quick win
+    .toolbar{display:flex;gap:6px;flex-wrap:wrap;align-items:center}
+    @media (max-width:800px){
+      .toolbar,.palette{flex-wrap:nowrap;overflow-x:auto;scroll-snap-type:x proximity;padding-bottom:6px}
+      .toolbar > *, .palette > *{scroll-snap-align:start}
+    }
 
-    // API add-on for Pro Suite
-    next.addons.apiAddOn = next.edition === "pro" && s.needIntegrationsAPI;
+    .chip{
+      display:inline-flex;align-items:center;gap:8px;padding:8px 10px;
+      border:1px solid var(--line);background:#fafafa;border-radius:10px;cursor:pointer;white-space:nowrap
+    }
+    .chip input{accent-color:var(--accent)}
 
-    setEdition(next.edition);
-    setAddons(next.addons);
-    setUsers(s.teamSize);
-  }
+    .groupTitle{margin:10px 0 6px;font-size:12px;color:var(--muted)}
 
-  function copySummaryToClipboard() {
-    const lines = [
-      `${firstName ? firstName + ", " : ""}Here’s your Salesforce estimate for ${company || "your company"}:`,
-      `Edition: ${PRICING.editions[edition].name} (${currency(PRICING.editions[edition].price)}/user/mo)`,
-      `Users: ${users}`,
-      `Add-ons: ${Object.entries(addons)
-        .filter(([k, v]) => (k === "prmLogins" ? v > 0 : !!v))
-        .map(([k, v]) => (k === "prmLogins" ? `${PRICING.addons.prmLogins.name} x ${v}` : PRICING.addons[k as keyof typeof PRICING.addons].name))
-        .join(", ") || "None"}`,
-      `Success Plan: ${PRICING.successPlans[successPlan].name}`,
-      `\nMonthly Total: ${currency(compute.monthlyTotal)} (Licenses ${currency(compute.licenseMonthly)} + Add-ons ${currency(compute.addonsMonthly)} + Success ${currency(compute.successMonthly)})`,
-      `Annual Total: ${currency(compute.annualTotal)}`,
-      `One-time (Implementation): ${currency(compute.oneTime)}`,
-      `\nDisclaimer: Estimates only. Salesforce bills annually; taxes/discounts not included.`,
-    ].join("\n");
+    .palette{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:8px}
+    .sample{margin-left:auto;opacity:.85;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:55%}
 
-    navigator.clipboard.writeText(lines).catch(() => {});
-  }
+    .miniTools{display:flex;gap:6px;flex-wrap:wrap;align-items:center;margin:6px 0 10px}
+    .miniBtn{
+      border:1px solid var(--line);background:#fff;border-radius:8px;padding:6px 8px;cursor:pointer;font-size:13px
+    }
+    .miniSelect{border:1px solid var(--line);border-radius:8px;padding:6px 8px;background:#fff}
 
-  // Colors for chart
-  const PIE_COLORS = ["#10b981", "#0ea5e9", "#a78bfa"]; // emerald / sky / violet
+    .recoGrid{display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:10px;margin:10px 0}
+    .recoCard{background:#fff;border:1px solid var(--line);border-radius:12px;padding:10px}
+    .recoHead{display:flex;justify-content:space-between;align-items:center;margin-bottom:6px}
+    .recoTitle{font-weight:700} .recoDesc{color:var(--muted);font-size:12px}
+    .recoText{white-space:pre-wrap;word-break:break-word;background:#fcfcfe;border:1px solid var(--line);border-radius:8px;padding:8px;margin:8px 0;max-height:180px;overflow:auto}
+    .recoBtns{display:flex;gap:8px}
 
-  return (
-    <div className="mx-auto max-w-6xl p-4 sm:p-6 space-y-6">
-      <header className="flex flex-col gap-2">
-        <div className="flex items-center gap-2">
-          <LineChart className={`h-6 w-6 ${BRAND.text}`} />
-          <h1 className="text-2xl sm:text-3xl font-semibold tracking-tight">Salesforce Sales Cloud Pricing Estimator</h1>
-        </div>
-        <p className="text-sm text-muted-foreground">Branded for CRM Hacker • Estimates only • Billed annually by Salesforce • Excludes taxes/discounts</p>
-      </header>
+    .previewShell{padding:12px}
+    .preview{background:#fff;color:#111;border-radius:12px;overflow:hidden;border:1px solid #d2d6de}
+    .liTop{display:flex;gap:10px;align-items:flex-start;padding:12px}
+    .liTop img{height:40px;width:40px;border-radius:50%;background:#fff}
+    .liName{font-weight:600}
+    .liMeta{font-size:12px;color:#666}
+    .liFollow{margin-left:auto;background:#0a66c2;color:#fff;border:0;border-radius:999px;padding:6px 10px;font-weight:600}
+    .liBody{padding:0 12px 12px;white-space:pre-wrap;word-break:break-word}
+    .liImage{width:100%;display:none;max-height:380px;object-fit:cover;background:#f5f6f8}
+    .liActions{display:flex;gap:18px;border-top:1px solid #eef1f5;padding:10px 12px;color:#5f6b7a;font-size:13px}
+    .deviceRow{display:flex;align-items:center;gap:10px;margin:8px 0 0;flex-wrap:wrap}
+    .deviceRow .chip{background:#f6f6f6}
 
-      {/* Identity */}
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2"><Mail className="h-5 w-5" /> Personalize your estimate</CardTitle>
-        </CardHeader>
-        <CardContent className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-          <div>
-            <Label>First name</Label>
-            <Input value={firstName} onChange={(e) => setFirstName(e.target.value)} placeholder="Jane" />
+    @media (max-width:600px){
+      .deviceRow{gap:6px}
+      .deviceRow .chip{flex:1 1 auto}
+      .previewShell .btn.good{flex:1 1 100%}
+    }
+
+    .meter{height:8px;background:#eee;border-radius:999px;border:1px solid #ddd;overflow:hidden}
+    .meter>i{display:block;height:100%;background:linear-gradient(90deg,var(--accent),#ff9b73)}
+
+    .toolset{display:none}
+    .toolset.active{display:block}
+
+    .schedule{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin:0 0 12px 0;padding:10px;border:1px dashed var(--line);border-radius:10px;background:#fff}
+    .schedule input[type="datetime-local"]{border:1px solid var(--line);border-radius:8px;padding:6px 8px}
+    .tz{font-size:12px;color:var(--muted)}
+    @media (max-width:600px){
+      .schedule .btn{flex:1 1 100%}
+      .schedule input[type="datetime-local"]{flex:1 1 100%}
+    }
+
+    /* Hashtag Optimizer */
+    .hashControls{display:flex;flex-wrap:wrap;gap:8px;align-items:center}
+    .rangeWrap{display:flex;align-items:center;gap:8px}
+    .rangeWrap input[type=range]{width:160px}
+    .pill{
+      display:inline-flex;align-items:center;gap:8px;
+      background:var(--pill);border:1px solid var(--line);border-radius:999px;
+      padding:6px 10px;margin:4px 6px 0 0;font-size:13px
+    }
+    .badge{font-size:11px;padding:2px 6px;border-radius:999px;border:1px solid var(--line);background:#fff;color:#333}
+    .badge.core{border-color:#ffe1e1;background:#fff5f5}
+    .badge.support{border-color:#e1f7ff;background:#f5fcff}
+    .badge.niche{border-color:#e8e8ff;background:#f7f7ff}
+    .score{font-size:11px;color:#666}
+    .hashRows{margin-top:8px}
+    .hashRow{margin-top:8px}
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <div class="topbar">
+      <img src="logo.png" alt="CRM Hacker logo" onerror="this.style.display='none'">
+      <div class="brand">
+        <h1>CRM Hacker — LinkedIn Text Formatter</h1>
+        <div class="tag">Built by CRM Hacker</div>
+      </div>
+    </div>
+
+    <div class="grid">
+      <!-- LEFT: Editor + recommendations + all controls -->
+      <div>
+        <div class="card pad">
+          <h3 style="margin-top:0">Editor</h3>
+
+          <!-- Selection-aware mini toolbar (true toggles) -->
+          <div class="miniTools" aria-label="inline tools">
+            <button class="miniBtn" data-act="bold">B</button>
+            <button class="miniBtn" data-act="italic"><span style="font-style:italic">I</span></button>
+            <button class="miniBtn" data-act="underline"><u>U</u></button>
+            <button class="miniBtn" data-act="strike"><s>S</s></button>
+            <button class="miniBtn" data-act="numbers">1. List</button>
+            <button class="miniBtn" data-act="bullets">• List</button>
+            <button class="miniBtn" data-act="quote">“Quote”</button>
+            <select id="fontSel" class="miniSelect" title="Font for selection">
+              <option value="">Font → selection</option>
+            </select>
+            <button class="miniBtn" data-act="tiny">Tiny</button>
+            <button class="miniBtn" data-act="sub">Sub</button>
+            <button class="miniBtn" data-act="sup">Sup</button>
+            <button class="miniBtn" data-act="clear">Clear</button>
           </div>
-          <div>
-            <Label>Last name</Label>
-            <Input value={lastName} onChange={(e) => setLastName(e.target.value)} placeholder="Doe" />
+
+          <textarea id="input" placeholder="Enter your text to format here..."></textarea>
+
+          <!-- Recommendations (beneath textarea) -->
+          <div id="recoArea"></div>
+
+          <!-- Primary controls -->
+          <div class="controls">
+            <button class="btn primary" id="formatBtn">Format → Preview</button>
+            <button class="btn" id="recommendBtn">Recommend Formatting</button>
+            <button class="btn" id="randomBtn">Randomize</button>
+            <button class="btn" id="clearBtn">Clear Formatting</button>
+            <span class="muted" id="counts">0 chars • 0 words</span>
           </div>
-          <div>
-            <Label>Company</Label>
-            <Input value={company} onChange={(e) => setCompany(e.target.value)} placeholder="Acme, Inc." />
+
+          <div class="divider"></div>
+
+          <!-- Toolkit picker -->
+          <div class="controls" style="margin-top:0">
+            <label class="chip" style="background:#fff">
+              <span>Format Toolkit:</span>
+              <select id="toolkitPick" style="border:1px solid var(--line);border-radius:8px;padding:6px 8px;background:#fff;margin-left:6px">
+                <option value="all" selected>All Tools</option>
+                <option value="basic">Basic Styles</option>
+                <option value="lists">Lists & Quotes</option>
+                <option value="fonts">Fancy Fonts</option>
+                <option value="transform">Text Transforms</option>
+                <option value="sort">Sorting</option>
+                <option value="overlays">Overlays</option>
+              </select>
+            </label>
           </div>
-          <div>
-            <Label>Email</Label>
-            <Input type="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="you@company.com" />
+
+          <!-- BASIC STYLES (global toggles) -->
+          <div class="toolset active" data-set="basic" id="set_basic">
+            <div class="groupTitle">Basic Styles (toggle on/off)</div>
+            <div class="toolbar">
+              <label class="chip"><input type="checkbox" id="stBold"> Bold</label>
+              <label class="chip"><input type="checkbox" id="stItalic"> Italic</label>
+            </div>
           </div>
-        </CardContent>
-      </Card>
 
-      {/* Configurator */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        {/* Left column: Core + Add-ons */}
-        <div className="space-y-6 lg:col-span-2">
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center justify-between">
-                <span>Core configuration</span>
-                <Badge variant="secondary" className="uppercase">v2025.08</Badge>
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-                <div>
-                  <Label>Users</Label>
-                  <Input type="number" min={1} value={users} onChange={(e) => setUsers(Math.max(1, Number(e.target.value)))} />
-                </div>
-                <div>
-                  <Label>Edition</Label>
-                  <Select value={edition} onValueChange={(v: EditionKey) => setEdition(v)}>
-                    <SelectTrigger>
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="starter">Starter Suite — $25</SelectItem>
-                      <SelectItem value="pro">Pro Suite — $100</SelectItem>
-                      <SelectItem value="enterprise">Enterprise — $175</SelectItem>
-                      <SelectItem value="unlimited">Unlimited — $350</SelectItem>
-                      <SelectItem value="agentforce1">Agentforce 1 Sales — $550</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-                <div>
-                  <Label>Success Plan</Label>
-                  <Select value={successPlan} onValueChange={(v: SuccessKey) => setSuccessPlan(v)}>
-                    <SelectTrigger>
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="standard">Standard (included)</SelectItem>
-                      <SelectItem value="premier">Premier (+30%)</SelectItem>
-                      <SelectItem value="signature">Signature (contact sales)</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-              </div>
+          <!-- LISTS & QUOTES -->
+          <div class="toolset active" data-set="lists" id="set_lists">
+            <div class="groupTitle">Lists & Quotes</div>
+            <div class="toolbar">
+              <label class="chip"><input type="checkbox" id="stBullets"> Bulleted list</label>
+              <label class="chip"><input type="checkbox" id="stNumbers"> Numbered list</label>
+              <label class="chip"><input type="checkbox" id="stQuote"> Quote lines</label>
+            </div>
+          </div>
 
-              <Separator />
+          <!-- FANCY FONTS -->
+          <div class="toolset active" data-set="fonts" id="set_fonts">
+            <div class="groupTitle">Fancy fonts (Unicode)</div>
+            <div class="palette" id="fontsGrid"></div>
+          </div>
 
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <AddonToggle
-                  title="Sales Engagement"
-                  subtitle="Cadences, dialer & automation"
-                  price="$50/user/mo"
-                  checked={addons.salesEngagement}
-                  onCheckedChange={(v) => setAddons({ ...addons, salesEngagement: v })}
-                />
-                <AddonToggle
-                  title="Einstein Conversation Insights"
-                  subtitle="Call recording analysis"
-                  price="$50/user/mo"
-                  checked={addons.conversationIntelligence}
-                  onCheckedChange={(v) => setAddons({ ...addons, conversationIntelligence: v })}
-                />
-                <AddonToggle
-                  title="Revenue Intelligence"
-                  subtitle="Advanced forecasting & pipeline"
-                  price="$220/user/mo"
-                  checked={addons.revenueIntelligence}
-                  onCheckedChange={(v) => setAddons({ ...addons, revenueIntelligence: v })}
-                />
-                <AddonToggle
-                  title="Revenue Cloud (CPQ/Billing)"
-                  subtitle="Configure-Price-Quote & Billing"
-                  price="$200/user/mo"
-                  checked={addons.revenueCloud}
-                  onCheckedChange={(v) => setAddons({ ...addons, revenueCloud: v })}
-                />
-                <AddonToggle
-                  title="Salesforce Maps"
-                  subtitle="Field routes & territory mapping"
-                  price="$75/user/mo"
-                  checked={addons.maps}
-                  onCheckedChange={(v) => setAddons({ ...addons, maps: v })}
-                />
-                <AddonToggle
-                  title="Sales Programs"
-                  subtitle="Enablement in the flow of work"
-                  price="$100/user/mo"
-                  checked={addons.salesPrograms}
-                  onCheckedChange={(v) => setAddons({ ...addons, salesPrograms: v })}
-                />
-                <AddonToggle
-                  title="Sales Emails & Alerts"
-                  subtitle="Email sends & notifications"
-                  price="$50/user/mo"
-                  checked={addons.emailsAlerts}
-                  onCheckedChange={(v) => setAddons({ ...addons, emailsAlerts: v })}
-                />
-                {edition === "pro" && (
-                  <AddonToggle
-                    title="Web Services API (Pro Suite)"
-                    subtitle="Enable integrations on Pro"
-                    price="$25/user/mo"
-                    checked={addons.apiAddOn}
-                    onCheckedChange={(v) => setAddons({ ...addons, apiAddOn: v })}
-                  />
-                )}
+          <!-- TEXT TRANSFORMS -->
+          <div class="toolset active" data-set="transform" id="set_transform">
+            <div class="groupTitle">Text transforms</div>
+            <div class="toolbar">
+              <label class="chip"><input type="checkbox" id="upper"> UPPER</label>
+              <label class="chip"><input type="checkbox" id="lower"> lower</label>
+              <label class="chip"><input type="checkbox" id="title"> Title Case</label>
+              <label class="chip"><input type="checkbox" id="tiny"> Tiny</label>
+              <label class="chip"><input type="checkbox" id="sub"> Sub</label>
+              <label class="chip"><input type="checkbox" id="sup"> Sup</label>
+              <label class="chip"><input type="checkbox" id="clean"> Remove marks</label>
+            </div>
+          </div>
 
-                <Card className="col-span-1 md:col-span-2">
-                  <CardContent className="pt-4 grid grid-cols-1 sm:grid-cols-2 gap-4 items-end">
-                    <div>
-                      <Label>Partner logins (PRM)</Label>
-                      <Input type="number" min={0} value={addons.prmLogins}
-                        onChange={(e) => setAddons({ ...addons, prmLogins: Math.max(0, Number(e.target.value)) })} />
-                    </div>
-                    <div className="text-sm text-muted-foreground">
-                      $10 per partner login/month. Useful for channel programs.
-                    </div>
-                  </CardContent>
-                </Card>
+          <!-- SORTING -->
+          <div class="toolset active" data-set="sort" id="set_sort">
+            <div class="groupTitle">Sort / Staircase</div>
+            <div class="toolbar">
+              <label class="chip"><input type="radio" name="sort" value="none" checked> None</label>
+              <label class="chip"><input type="radio" name="sort" value="asc"> Short → Long</label>
+              <label class="chip"><input type="radio" name="sort" value="desc"> Long → Short</label>
+              <label class="chip"><input type="radio" name="sort" value="stair"> Staircase (S-L-S)</label>
+              <span class="muted">Reorders by line length.</span>
+            </div>
+          </div>
 
-              </div>
-            </CardContent>
-          </Card>
+          <!-- OVERLAYS -->
+          <div class="toolset active" data-set="overlays" id="set_overlays">
+            <div class="groupTitle">Overlays</div>
+            <div class="toolbar">
+              <label class="chip"><input type="checkbox" id="ovStrike"> Strikethrough</label>
+              <label class="chip"><input type="checkbox" id="ovUnder"> Underline</label>
+              <label class="chip"><input type="checkbox" id="ovOver"> Overline</label>
+              <label class="chip"><input type="checkbox" id="ovSlash"> Slash</label>
+              <label class="chip"><input type="checkbox" id="ovWavy"> Wavy</label>
+              <label class="chip"><input type="checkbox" id="ovDot"> Dot above</label>
+              <label class="chip"><input type="checkbox" id="ovRing"> Ring above</label>
+              <label class="chip"><input type="checkbox" id="sentStrike"> Strike per sentence</label>
+            </div>
+          </div>
 
-          {/* Needs signals + Recommend */}
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2"><Wand2 className="h-5 w-5" /> Let us recommend a setup</CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-5">
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <SignalSlider
-                  label="Team size"
-                  value={signals.teamSize}
-                  onChange={(v) => setSignals({ ...signals, teamSize: v })}
-                  min={1}
-                  max={500}
-                  step={1}
-                />
-                <SignalSlider
-                  label="Quoting complexity"
-                  hint="Simple → Complex"
-                  value={signals.quotingComplexity}
-                  onChange={(v) => setSignals({ ...signals, quotingComplexity: v })}
-                  min={0}
-                  max={2}
-                />
-                <SignalSlider
-                  label="Forecasting maturity"
-                  hint="Basic → Advanced"
-                  value={signals.forecastingMaturity}
-                  onChange={(v) => setSignals({ ...signals, forecastingMaturity: v })}
-                  min={0}
-                  max={2}
-                />
-                <SignalSlider
-                  label="Field sales intensity"
-                  hint="None → Heavy"
-                  value={signals.fieldSales}
-                  onChange={(v) => setSignals({ ...signals, fieldSales: v })}
-                  min={0}
-                  max={2}
-                />
-                <SignalSlider
-                  label="Outbound cadences"
-                  hint="None → With call reviews"
-                  value={signals.outboundCadence}
-                  onChange={(v) => setSignals({ ...signals, outboundCadence: v })}
-                  min={0}
-                  max={2}
-                />
-                <div className="flex items-center justify-between rounded-lg border p-3">
-                  <div>
-                    <div className="font-medium">Integrations/API needed</div>
-                    <div className="text-xs text-muted-foreground">Toggle if you plan to integrate many tools.</div>
-                  </div>
-                  <Switch checked={signals.needIntegrationsAPI} onCheckedChange={(v) => setSignals({ ...signals, needIntegrationsAPI: v })} />
-                </div>
-                <SignalSlider
-                  label="AI priority"
-                  hint="Low → High"
-                  value={signals.aiPriority}
-                  onChange={(v) => setSignals({ ...signals, aiPriority: v })}
-                  min={0}
-                  max={2}
-                />
-                <SignalSlider
-                  label="Budget sensitivity"
-                  hint="High budget → Cost sensitive"
-                  value={signals.budgetSensitivity}
-                  onChange={(v) => setSignals({ ...signals, budgetSensitivity: v })}
-                  min={0}
-                  max={2}
-                />
-              </div>
-
-              <div className="flex gap-3">
-                <Button className={BRAND.btn} onClick={recommend}><Wand2 className="h-4 w-4 mr-1" /> Recommend setup</Button>
-                <Button variant="secondary" onClick={copySummaryToClipboard}><Copy className="h-4 w-4 mr-1" /> Copy summary</Button>
-              </div>
-
-              <div className="text-xs text-muted-foreground flex items-start gap-2"><Info className="h-4 w-4 mt-0.5" /> Recommendations use simple heuristics and public list prices. Final pricing varies by term, volume, promos, and region.</div>
-            </CardContent>
-          </Card>
+          <div class="divider"></div>
+          <div class="muted">© CRM Hacker</div>
         </div>
 
-        {/* Right column: Results */}
-        <div className="space-y-6">
-          <Card className="border-2 border-emerald-200">
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2"><DollarSign className="h-5 w-5" /> Estimated cost</CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="rounded-lg bg-emerald-50 p-3 text-sm">
-                {firstName ? (<span className="font-medium">Hey {firstName}</span>) : (<span className="font-medium">Hi there</span>)}{", "}
-                here’s a ballpark for {company || "your company"}. We’ll email you a copy at {email || "(add email)"} if you hit copy.
-              </div>
-
-              <div className="grid grid-cols-2 gap-4 text-sm">
-                <div className="space-y-1">
-                  <div className="text-muted-foreground">Edition</div>
-                  <div className="font-medium">{PRICING.editions[edition].name}</div>
-                </div>
-                <div className="space-y-1">
-                  <div className="text-muted-foreground">Users</div>
-                  <div className="font-medium">{users}</div>
-                </div>
-                <div className="space-y-1">
-                  <div className="text-muted-foreground">Licenses / mo</div>
-                  <div className="font-medium">{currency(compute.licenseMonthly)}</div>
-                </div>
-                <div className="space-y-1">
-                  <div className="text-muted-foreground">Add-ons / mo</div>
-                  <div className="font-medium">{currency(compute.addonsMonthly)}</div>
-                </div>
-                <div className="space-y-1">
-                  <div className="text-muted-foreground">Success Plan / mo</div>
-                  <div className="font-medium">{currency(compute.successMonthly)}</div>
-                </div>
-                <div className="space-y-1">
-                  <div className="text-muted-foreground">One-time (impl.)</div>
-                  <div className="font-medium">{currency(compute.oneTime)}</div>
-                </div>
-              </div>
-
-              <Separator />
-
-              <div className="flex items-center justify-between">
-                <div className="text-sm text-muted-foreground">Monthly total</div>
-                <div className="text-2xl font-semibold">{currency(compute.monthlyTotal)}</div>
-              </div>
-              <div className="flex items-center justify-between">
-                <div className="text-sm text-muted-foreground">Annual total</div>
-                <div className="text-xl font-semibold">{currency(compute.annualTotal)}</div>
-              </div>
-
-              <div className="h-56">
-                <ResponsiveContainer width="100%" height="100%">
-                  <PieChart>
-                    <Pie data={compute.breakdown} dataKey="value" nameKey="name" innerRadius={50} outerRadius={80} paddingAngle={3}>
-                      {compute.breakdown.map((_, i) => (
-                        <Cell key={i} fill={PIE_COLORS[i % PIE_COLORS.length]} />
-                      ))}
-                    </Pie>
-                    <Tooltip formatter={(v: any) => currency(Number(v))} />
-                  </PieChart>
-                </ResponsiveContainer>
-              </div>
-
-              <div className="text-xs text-muted-foreground">
-                * List prices in USD. Salesforce typically bills annually. Taxes, promos, multi-year terms, and AE-negotiated discounts are not included.
-              </div>
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2"><ShieldCheck className="h-5 w-5" /> Implementation package</CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-3">
-              <Select value={impl} onValueChange={(v: ImplKey) => setImpl(v)}>
-                <SelectTrigger>
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="none">No Implementation Package</SelectItem>
-                  <SelectItem value="basic">Quick Start — $10,000</SelectItem>
-                  <SelectItem value="standard">Standard — $25,000</SelectItem>
-                  <SelectItem value="advanced">Advanced — $50,000</SelectItem>
-                </SelectContent>
-              </Select>
-
-              <div className="text-xs text-muted-foreground">These one-time estimates are placeholders for CRM Hacker offers. Adjust to your SKU playbook.</div>
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardHeader>
-              <CardTitle>Pricing sources</CardTitle>
-            </CardHeader>
-            <CardContent className="text-sm text-muted-foreground space-y-2">
-              <ul className="list-disc ml-5 space-y-1">
-                <li>Sales Cloud editions & list prices (Starter, Pro, Enterprise, Unlimited, Agentforce 1 Sales)</li>
-                <li>Revenue Intelligence, Revenue Cloud, Sales Programs, PRM, API add-on, Maps, Sales Engagement, Conversation Insights</li>
-                <li>Premier Success Plan: +30% of net license (Unlimited includes Premier)</li>
-              </ul>
-              <div className="text-xs">Links are kept in your repo README so marketing can update values without code changes.</div>
-            </CardContent>
-          </Card>
+        <!-- NEW: Hashtag Optimizer -->
+        <div class="card pad" style="margin-top:12px">
+          <h3 style="margin-top:0">Hashtag Optimizer (Top 15)</h3>
+          <div class="hashControls">
+            <div class="rangeWrap">
+              <span class="muted">Bias:</span>
+              <span>Reach</span>
+              <input type="range" id="reachBias" min="0" max="100" value="50">
+              <span>Specificity</span>
+            </div>
+            <label class="chip"><input type="checkbox" id="inclCRM" checked> Include CRM/RevOps</label>
+            <label class="chip"><input type="checkbox" id="inclGeneric" checked> Include platform generics</label>
+            <label class="chip"><input type="checkbox" id="avoidTooGeneric" checked> Avoid ultra-generic</label>
+            <button class="btn" id="analyzeTags">Analyze Hashtags</button>
+            <button class="btn ghost" id="copyAllTags">Copy All</button>
+            <button class="btn ghost" id="insertTags">Insert into Post</button>
+          </div>
+          <div class="hashRows" id="hashOutput">
+            <div class="muted" style="margin-top:6px">Tip: LinkedIn generally favors ~3 hashtags per post. We still show 15 so you can choose the best mix.</div>
+          </div>
         </div>
       </div>
 
-    </div>
-  );
-}
-
-function AddonToggle({ title, subtitle, price, checked, onCheckedChange }: { title: string; subtitle?: string; price?: string; checked: boolean; onCheckedChange: (v: boolean) => void; }) {
-  return (
-    <Card>
-      <CardContent className="pt-4 flex items-center justify-between gap-4">
-        <div>
-          <div className="font-medium">{title}</div>
-          <div className="text-xs text-muted-foreground">{subtitle}</div>
-          {price && <div className="text-xs mt-1"><span className="px-2 py-0.5 rounded bg-emerald-50 text-emerald-700">{price}</span></div>}
+      <!-- RIGHT: Post actions (own section) + Preview -->
+      <div class="card previewShell">
+        <div class="schedule">
+          <strong>Schedule & Post</strong>
+          <input id="postWhen" type="datetime-local">
+          <span class="tz" id="tzInfo"></span>
+          <button class="btn" id="postNowBtn">Post / Schedule on LinkedIn</button>
+          <button class="btn link" id="icsBtn">Add to Calendar (.ics)</button>
         </div>
-        <Switch checked={checked} onCheckedChange={onCheckedChange} />
-      </CardContent>
-    </Card>
-  );
-}
 
-function SignalSlider({ label, hint, value, onChange, min, max, step = 1 }: { label: string; hint?: string; value: number; onChange: (v: number) => void; min: number; max: number; step?: number; }) {
-  return (
-    <div className="rounded-lg border p-3">
-      <div className="flex items-center justify-between mb-2">
-        <div className="font-medium">{label}</div>
-        <Badge variant="secondary">{value}</Badge>
+        <h3 style="margin:8px 0 0">Preview</h3>
+
+        <div class="deviceRow">
+          <label class="chip"><input type="radio" name="device" value="desktop" checked> Desktop</label>
+          <label class="chip"><input type="radio" name="device" value="mobile"> Mobile</label>
+          <div class="chip"><input type="file" id="imagePick" accept="image/*"><span>Attach image</span></div>
+          <button class="btn good" id="copyBtn">Copy Output</button>
+        </div>
+
+        <div style="height:8px"></div>
+        <div class="meter"><i id="meterBar" style="width:0%"></i></div>
+        <div class="muted" id="limitInfo" style="margin-top:4px">0 / 3000</div>
+
+        <div id="preview" class="preview" style="margin-top:12px;max-width:760px">
+          <div class="liTop">
+            <img src="logo.png" alt="CRM Hacker avatar">
+            <div>
+              <div class="liName">CRM Hacker</div>
+              <div class="liMeta">Company • Just now • <span style="color:var(--li-blue)">#CRM #RevOps</span></div>
+            </div>
+            <button class="liFollow">Follow</button>
+          </div>
+          <div class="liBody" id="liBody"></div>
+          <img id="liImage" class="liImage" alt="attached image" />
+          <div class="liActions">
+            <span>👍 Like</span><span>💬 Comment</span><span>↗ Share</span><span>•••</span>
+          </div>
+        </div>
       </div>
-      {hint && <div className="text-xs text-muted-foreground mb-2">{hint}</div>}
-      <Slider value={[value]} min={min} max={max} step={step} onValueChange={(v) => onChange(v[0])} />
     </div>
-  );
-}
+  </div>
+
+<script>
+  // ===== DOM helpers
+  const $ = (s,ctx=document)=>ctx.querySelector(s);
+  const $$ = (s,ctx=document)=>Array.from(ctx.querySelectorAll(s));
+  const input = $('#input'), liBody = $('#liBody');
+  const meterBar = $('#meterBar'), limitInfo = $('#limitInfo');
+  const LINKEDIN_LIMIT = 3000;
+
+  const tzName = Intl.DateTimeFormat().resolvedOptions().timeZone || 'Local';
+  $('#tzInfo').textContent = `Timezone: ${tzName}`;
+
+  function updateCounts(){
+    const text = input.value;
+    const chars = [...text].length;
+    const words = text.trim()? text.trim().split(/\s+/).length : 0;
+    $('#counts').textContent = `${chars} chars • ${words} words`;
+    const pct = Math.min(100, Math.round(chars / LINKEDIN_LIMIT * 100));
+    meterBar.style.width = pct + '%';
+    limitInfo.textContent = `${chars} / ${LINKEDIN_LIMIT}`;
+    limitInfo.style.color = chars>LINKEDIN_LIMIT ? 'var(--warn)' : 'var(--muted)';
+  }
+  input.addEventListener('input', updateCounts);
+
+  // ===== Unicode maps & reverse maps (formatter engine)
+  const A='ABCDEFGHIJKLMNOPQRSTUVWXYZ', a='abcdefghijklmnopqrstuvwxyz', D='0123456789';
+  const buildMap=(U,L,N)=>{const m=new Map(); if(U!=null)for(let i=0;i<26;i++)m.set(A[i],String.fromCodePoint(U+i)); if(L!=null)for(let i=0;i<26;i++)m.set(a[i],String.fromCodePoint(L+i)); if(N!=null)for(let i=0;i<10;i++)m.set(D[i],String.fromCodePoint(N+i)); return m;};
+
+  const MAPS={
+    plain:new Map(),
+    bold:buildMap(0x1D400,0x1D41A,0x1D7CE),
+    italic:buildMap(0x1D434,0x1D44E,null),
+    boldItalic:buildMap(0x1D468,0x1D482,null),
+    sans:buildMap(0x1D5A0,0x1D5BA,0x1D7E2),
+    sansBold:buildMap(0x1D5D4,0x1D5EE,0x1D7EC),
+    mono:buildMap(0x1D670,0x1D68A,0x1D7F6),
+    scriptBold:buildMap(0x1D4D0,0x1D4EA,null),
+    frakturBold:buildMap(0x1D56C,0x1D586,null),
+    doublestruck:buildMap(0x1D538,0x1D552,0x1D7D8),
+    fullwidth:buildMap(0xFF21,0xFF41,0xFF10),
+    circled:(()=>{const m=new Map();for(let i=0;i<26;i++){m.set(A[i],String.fromCodePoint(0x24B6+i));m.set(a[i],String.fromCodePoint(0x24D0+i));}m.set('0',String.fromCodePoint(0x24EA));for(let i=1;i<=10;i++)m.set(String(i%10),String.fromCodePoint(0x2460+i-1));return m;})(),
+    squared:(()=>{const m=new Map();for(let i=0;i<26;i++){m.set(A[i],String.fromCodePoint(0x1F130+i));m.set(a[i],String.fromCodePoint(0x1F130+i));}return m;})(),
+    smallcaps:new Map([...a].map((c,i)=>[c,A[i]]))
+  };
+
+  const tinyMap=new Map(Object.entries({a:'ᵃ',b:'ᵇ',c:'ᶜ',d:'ᵈ',e:'ᵉ',f:'ᶠ',g:'ᵍ',h:'ʰ',i:'ᶦ',j:'ʲ',k:'ᵏ',l:'ˡ',m:'ᵐ',n:'ⁿ',o:'ᵒ',p:'ᵖ',q:'ᑫ',r:'ʳ',s:'ˢ',t:'ᵗ',u:'ᵘ',v:'ᵛ',w:'ʷ',x:'ˣ',y:'ʸ',z:'ᶻ',A:'ᴬ',B:'ᴮ',C:'ᶜ',D:'ᴰ',E:'ᴱ',F:'ᶠ',G:'ᴳ',H:'ᴴ',I:'ᴵ',J:'ᴶ',K:'ᴷ',L:'ᴸ',M:'ᴹ',N:'ᴺ',O:'ᴼ',P:'ᴾ',Q:'ᑫ',R:'ᴿ',S:'ˢ',T:'ᵀ',U:'ᵁ',V:'ⱽ',W:'ᵂ',X:'ˣ',Y:'ʸ',Z:'ᶻ',0:'⁰',1:'¹',2:'²',3:'³',4:'⁴',5:'⁵',6:'⁶',7:'⁷',8:'⁸',9:'⁹'}));
+  const subMap=new Map(Object.entries({a:'ₐ',e:'ₑ',h:'ₕ',i:'ᵢ',j:'ⱼ',k:'ₖ',l:'ₗ',m:'ₘ',n:'ₙ',o:'ₒ',p:'ₚ',r:'ᵣ',s:'ₛ',t:'ₜ',u:'ᵤ',v:'ᵥ',x:'ₓ',0:'₀',1:'₁',2:'₂',3:'₃',4:'₄',5:'₅',6:'₆',7:'₇',8:'₈',9:'₉'}));
+  const supMap=new Map(); 'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789+-=()'.split('').forEach(ch=>{supMap.set(ch,tinyMap.get(ch)||({'0':'⁰','1':'¹','2':'²','3':'³','4':'⁴','5':'⁵','6':'⁶','7':'⁷','8':'⁸','9':'⁹','+':'⁺','-':'⁻','=':'⁼','(':'⁽',')':'⁾'})[ch]||ch)});
+
+  // Build reverse maps to strip to plain
+  function buildReverseMap(srcMap){ const rev=new Map(); srcMap.forEach((v,k)=>{ rev.set(v,k); }); return rev; }
+  const reverseMaps = {
+    ...Object.fromEntries(Object.entries(MAPS).filter(([k])=>k!=='plain').map(([k,m])=>[k, buildReverseMap(m)]))
+  };
+  const tinyRev = buildReverseMap(tinyMap);
+  const subRev  = buildReverseMap(subMap);
+  const supRev  = buildReverseMap(supMap);
+
+  const reverseAll = new Map();
+  [reverseMaps.bold, reverseMaps.italic, reverseMaps.boldItalic, reverseMaps.sans, reverseMaps.sansBold, reverseMaps.mono,
+   reverseMaps.scriptBold, reverseMaps.frakturBold, reverseMaps.doublestruck, reverseMaps.fullwidth, reverseMaps.circled,
+   reverseMaps.squared, reverseMaps.smallcaps, tinyRev, subRev, supRev].forEach(r=>{
+    if(!r) return; r.forEach((base,fancy)=>{ if(!reverseAll.has(fancy)) reverseAll.set(fancy, base); });
+  });
+
+  const CM={ strike:'\u0336', underline:'\u0332', overline:'\u0305', slash:'\u0337', wavy:'\u0334', dot:'\u0307', ring:'\u030A' };
+  const CM_RE=/\p{Mn}+/gu;
+  const removeCombining=s=>s.normalize('NFD').replace(CM_RE,'');
+  const removeSpecific=(s,mark)=>s.normalize('NFD').replace(new RegExp(mark,'g'),'');
+  const overlay=(s,marks)=>{const combo=marks.join('');return [...s].map(ch=> (ch===' '||ch==='\n')? ch : ch+combo).join('');}
+  const transformWithMap=(s,map)=>[...s].map(ch=> map.get(ch)||ch).join('');
+  const demapToPlain=(s)=>[...s].map(ch=> reverseAll.get(ch)||ch).join('');
+  const toTitle=s=>s.toLowerCase().replace(/\b([a-z])(\w*)/g,(_,h,rest)=>h.toUpperCase()+rest);
+  const mapRun=(s,id)=>{const m=MAPS[id]; return m? transformWithMap(s,m) : s;}
+  const sentenceStrike=s=>[...s].map(ch=> (ch===' '||ch==='\n')? ch : ch+CM.strike).join('');
+
+  // List helpers
+  const stripBullets = s => s.split(/\n/).map(line => line.replace(/^\s*(?:[•\-*]\s+)/,'')).join('\n');
+  const applyBullets = s => s.split(/\n/).map(line => line.trim()? '• ' + line.replace(/^\s*(?:[•\-*]\s+)/,'') : '').join('\n');
+  const isBulleted   = s => s.split(/\n/).some(line=>/^\s*[•\-*]\s+/.test(line));
+
+  const stripNumbers = s => s.split(/\n/).map(line => line.replace(/^\s*\d+\.\s+/,'')).join('\n');
+  const isNumbered   = s => s.split(/\n/).some(line=>/^\s*\d+\.\s+/.test(line));
+  const applyNumbers = s => { let i = 1; return s.split(/\n/).map(line => line.trim()? (i++) + '. ' + line.replace(/^\s*\d+\.\s+/,'') : '').join('\n'); };
+
+  const stripQuotes  = s => s.split(/\n/).map(l => l.replace(/^“/,'').replace(/”$/,'')).join('\n');
+  const isQuoted     = s => s.split(/\n/).some(l=>/^“.*”$/.test(l));
+  const applyQuotes  = s => s.split(/\n/).map(l => l? ('“' + stripQuotes(l) + '”') : '').join('\n');
+
+  // Selection-aware
+  function applyToSelectionOrAll(transform){
+    const el = input;
+    const start = el.selectionStart ?? 0, end = el.selectionEnd ?? 0;
+    if(end > start){
+      const before = el.value.slice(0,start);
+      const sel = el.value.slice(start,end);
+      const after = el.value.slice(end);
+      const out = transform(sel);
+      el.value = before + out + after;
+      el.selectionStart = start;
+      el.selectionEnd = start + out.length;
+    } else {
+      el.value = transform(el.value);
+    }
+    updateCounts();
+  }
+
+  // Mini toggles
+  function toggleFontSel(s, fontId){ const base = demapToPlain(s); const reapplied = mapRun(base, fontId); return (s === reapplied) ? base : reapplied; }
+  const toggleBold = s => toggleFontSel(s,'bold');
+  const toggleItalic = s => toggleFontSel(s,'italic');
+  const toggleUnderline = s => s.includes(CM.underline) ? removeSpecific(s, CM.underline) : overlay(s,[CM.underline]);
+  const toggleStrike = s => s.includes(CM.strike) ? removeSpecific(s, CM.strike) : overlay(s,[CM.strike]);
+  const toggleBullets = s => isBulleted(s) ? stripBullets(s) : applyBullets(s);
+  const toggleNumbers = s => isNumbered(s) ? stripNumbers(s) : applyNumbers(s);
+  const toggleQuote = s => isQuoted(s) ? stripQuotes(s) : applyQuotes(s);
+  const tinyMapApply = s => { const base=demapToPlain(s); const applied=transformWithMap(base,tinyMap); return (s===applied)? base: applied; }
+  const subMapApply = s => { const base=demapToPlain(s); const applied=transformWithMap(base,subMap); return (s===applied)? base: applied; }
+  const supMapApply = s => { const base=demapToPlain(s); const applied=transformWithMap(base,supMap); return (s===applied)? base: applied; }
+  const clearSel = s => removeCombining(demapToPlain(s).normalize('NFKD'));
+
+  const miniActions = {
+    bold: s=>toggleBold(s), italic: s=>toggleItalic(s), underline:s=>toggleUnderline(s), strike:s=>toggleStrike(s),
+    bullets:s=>toggleBullets(s), numbers:s=>toggleNumbers(s), quote:s=>toggleQuote(s),
+    tiny:s=>tinyMapApply(s), sub:s=>subMapApply(s), sup:s=>supMapApply(s),
+    clear:s=>clearSel(s), fontSel:(s,id)=>toggleFontSel(s,id)
+  };
+
+  $$('.miniBtn').forEach(btn=>{
+    btn.addEventListener('click', ()=>{
+      const act = btn.dataset.act;
+      if(act in miniActions){ applyToSelectionOrAll(miniActions[act]); }
+      runFormatPreviewOnly();
+      input.focus();
+    });
+  });
+
+  // Font (selection) dropdown
+  const FONT_OPTIONS=[
+    ['bold','Bold','Bold text'],
+    ['italic','Italic','Italic text'],
+    ['boldItalic','Bold Italic','Bold italic'],
+    ['sans','Sans','Sans look'],
+    ['sansBold','Sans Bold','Sans bold'],
+    ['mono','Monospace','Code vibe'],
+    ['scriptBold','Cursive','Cursive script'],
+    ['frakturBold','Fraktur','Fraktur style'],
+    ['doublestruck','Double-struck','Double struck'],
+    ['fullwidth','Fullwidth','Ｆｕｌｌｗｉｄｔｈ'],
+    ['circled','Circled','Ⓒⓡⓜ'],
+    ['squared','Squared','🅲🅁🅼'],
+    ['smallcaps','Small Caps','Small Caps']
+  ];
+  const fontSel = $('#fontSel');
+  FONT_OPTIONS.forEach(([id,label])=>{ const opt=document.createElement('option'); opt.value=id; opt.textContent=label; fontSel.appendChild(opt); });
+  fontSel.addEventListener('change', ()=>{ const id=fontSel.value; if(!id) return; applyToSelectionOrAll(s=>miniActions.fontSel(s,id)); fontSel.value=''; runFormatPreviewOnly(); input.focus(); });
+
+  // Global FORMAT
+  function sortLines(text,mode){
+    if(mode==='none') return text;
+    const lines = text.split(/\n/);
+    const items = lines.map((t,i)=>({t,i,len:[...t].length}));
+    items.sort((a,b)=> a.len-b.len );
+    let order=[];
+    if(mode==='asc') order=items.map(x=>x);
+    else if(mode==='desc') order=items.reverse();
+    else if(mode==='stair'){ let l=0, r=items.length-1; while(l<=r){ if(l===r){order.push(items[l]);break;} order.push(items[l++],items[r--]); } }
+    return order.map(o=>o.t).join('\n');
+  }
+
+  function runFormat(){
+    let s = input.value || '';
+    if($('#upper').checked) s = s.toUpperCase();
+    else if($('#lower').checked) s = s.toLowerCase();
+    else if($('#title').checked) s = toTitle(s);
+
+    s = $('#stBullets').checked ? applyBullets(s) : stripBullets(s);
+    s = $('#stNumbers').checked ? applyNumbers(s) : stripNumbers(s);
+    s = $('#stQuote').checked   ? applyQuotes(s)   : stripQuotes(s);
+
+    const sortMode = (document.querySelector('input[name="sort"]:checked')||{}).value || 'none';
+    s = sortLines(s, sortMode);
+
+    const font = (document.querySelector('input[name="font"]:checked')||{}).value;
+    if(font) s = mapRun(s, font);
+
+    if($('#stBold').checked)   s = mapRun(s,'bold');
+    if($('#stItalic').checked) s = mapRun(s,'italic');
+
+    if($('#tiny').checked) s = transformWithMap(s, tinyMap);
+    else if($('#sub').checked) s = transformWithMap(s, subMap);
+    else if($('#sup').checked) s = transformWithMap(s, supMap);
+
+    const marks=[];
+    if($('#ovStrike').checked) marks.push(CM.strike);
+    if($('#ovUnder').checked)  marks.push(CM.underline);
+    if($('#ovOver').checked)   marks.push(CM.overline);
+    if($('#ovSlash').checked)  marks.push(CM.slash);
+    if($('#ovWavy').checked)   marks.push(CM.wavy);
+    if($('#ovDot').checked)    marks.push(CM.dot);
+    if($('#ovRing').checked)   marks.push(CM.ring);
+
+    let didSentenceStrike=false;
+    if($('#sentStrike').checked){ s = sentenceStrike(s); didSentenceStrike=true; }
+    const restMarks = didSentenceStrike ? marks.filter(m=>m!==CM.strike) : marks;
+    if(restMarks.length) s = overlay(s, restMarks);
+
+    if($('#clean').checked){
+      s = removeCombining(s);
+      const restore = (didSentenceStrike? [CM.strike]:[]).concat(restMarks);
+      if(restore.length) s = overlay(s, restore);
+    }
+
+    liBody.textContent = s;
+    updateCounts();
+  }
+
+  function runFormatPreviewOnly(){ liBody.textContent = input.value || ''; updateCounts(); }
+
+  // Recs & Randomize
+  function randPick(arr){ return arr[Math.floor(Math.random()*arr.length)]; }
+  function coin(p=0.5){ return Math.random()<p; }
+  function looksLikeList(s){ return /^\s*[-•\d]/m.test(s) || s.split('\n').filter(x=>x.trim()).length >= 3; }
+  function toBullets(s){ return s.split(/\n/).map(l=> l.trim()? '• '+l.replace(/^([•\-\*\d\.]+\s*)/,'') : '').join('\n'); }
+
+  function randomizeFrom(src){
+    let s = src || ''; if(!s.trim()) return s;
+    const caseOps = [null,'upper','lower','title'];
+    const chosenCase = randPick(caseOps);
+    if(chosenCase==='upper') s = s.toUpperCase();
+    else if(chosenCase==='lower') s = s.toLowerCase();
+    else if(chosenCase==='title') s = toTitle(s);
+    if(looksLikeList(s) && coin(.7)){ s = coin(.6) ? (applyNumbers(s)) : (applyBullets(s)); }
+    if(coin(.3)) s = applyQuotes(s);
+    const fontOps = [null,'bold','italic','smallcaps','mono','scriptBold','sans','sansBold'];
+    const f = randPick(fontOps); if(f) s = mapRun(s,f);
+    const tsOps = [null,'tiny','sub','sup',null,null];
+    const ts = randPick(tsOps);
+    if(ts==='tiny') s = transformWithMap(s, tinyMap);
+    else if(ts==='sub') s = transformWithMap(s, subMap);
+    else if(ts==='sup') s = transformWithMap(s, supMap);
+    let marks=[];
+    if(coin(.25)) marks.push(CM.underline);
+    if(coin(.15)) marks.push(CM.strike);
+    if(coin(.10)) marks.push(CM.overline);
+    if(coin(.10)) marks.push(CM.dot);
+    if(coin(.08)) marks.push(CM.ring);
+    if(coin(.06)) marks.push(CM.wavy);
+    if(coin(.05)) marks.push(CM.slash);
+    if(coin(.05)) s = sentenceStrike(s);
+    if(marks.length) s = overlay(s, marks);
+    return s;
+  }
+
+  function recommendVariants(src){
+    const variants = [];
+    variants.push({ label:'Headline', desc:'Bold + Title Case for hooks', text: mapRun(toTitle(src),'bold') });
+    variants.push({ label:'Emphasis', desc:'Italic + Underline', text: overlay(mapRun(src,'italic'),[CM.underline]) });
+    variants.push({ label:'Clean', desc:'Small caps—subtle polish', text: mapRun(src,'smallcaps') });
+    const perSentence = sentenceStrike(src);
+    variants.push({ label:'Callout', desc:'Strike per sentence', text: perSentence });
+    if (looksLikeList(src)) variants.push({ label:'List', desc:'Auto-bulleted', text: toBullets(src) });
+    else variants.push({ label:'Punchy', desc:'Bold + Strike', text: overlay(mapRun(src,'bold'),[CM.strike]) });
+    variants.push({ label:'Subtle', desc:'Title + Underline', text: overlay(toTitle(src),[CM.underline]) });
+    variants.push({ label:'Monospace', desc:'Code-style clarity', text: mapRun(src,'mono') });
+    variants.push({ label:'Cursive', desc:'Script for taglines', text: mapRun(src,'scriptBold') });
+    variants.push({ label:'Double-struck', desc:'Math vibe for emphasis', text: mapRun(src,'doublestruck') });
+    return variants;
+  }
+
+  function renderRecommendations(list){
+    const host = $('#recoArea'); if (!list || !list.length){ host.innerHTML = ''; return; }
+    host.innerHTML = `<div class="recoGrid">
+      ${list.map((v,i)=>`
+        <div class="recoCard">
+          <div class="recoHead"><div class="recoTitle">${v.label}</div></div>
+          <div class="recoDesc">${v.desc}</div>
+          <div class="recoText" id="recoText_${i}">${v.text}</div>
+          <div class="recoBtns">
+            <button class="btn" data-use="${i}">Use this</button>
+            <button class="btn" data-copy="${i}">Copy</button>
+          </div>
+        </div>`).join('')}
+    </div>`;
+    host.querySelectorAll('[data-use]').forEach(btn=>{
+      btn.addEventListener('click', e=>{
+        const idx = +e.currentTarget.dataset.use;
+        liBody.textContent = list[idx].text;
+      });
+    });
+    host.querySelectorAll('[data-copy]').forEach(btn=>{
+      btn.addEventListener('click', async e=>{
+        const idx = +e.currentTarget.dataset.copy;
+        await navigator.clipboard.writeText(list[idx].text);
+        btn.textContent = 'Copied!';
+        setTimeout(()=> btn.textContent='Copy', 900);
+      });
+    });
+  }
+
+  // Build fonts palette (global fonts section)
+  const fontsGrid = $('#fontsGrid');
+  const FONT_OPTIONS=[['bold','Bold','Bold text'],['italic','Italic','Italic text'],['boldItalic','Bold Italic','Bold italic'],['sans','Sans','Sans look'],['sansBold','Sans Bold','Sans bold'],['mono','Monospace','Code vibe'],['scriptBold','Cursive','Cursive script'],['frakturBold','Fraktur','Fraktur style'],['doublestruck','Double-struck','Double struck'],['fullwidth','Fullwidth','Ｆｕｌｌｗｉｄｔｈ'],['circled','Circled','Ⓒⓡⓜ'],['squared','Squared','🅲🅁🅼'],['smallcaps','Small Caps','Small Caps']];
+  FONT_OPTIONS.forEach(([id,label,example])=>{
+    const row=document.createElement('label'); row.className='chip'; row.title=label;
+    const rb=document.createElement('input'); rb.type='radio'; rb.name='font'; rb.value=id;
+    const txt=document.createElement('span'); txt.textContent=label;
+    const sample=document.createElement('span'); sample.className='sample'; sample.textContent = mapRun(example||label, id);
+    row.append(rb, txt, sample); fontsGrid.appendChild(row);
+  });
+
+  // Image + device
+  $('#imagePick').addEventListener('change', (e)=>{
+    const f = e.target.files?.[0]; if(!f) return; const url = URL.createObjectURL(f);
+    const im = $('#liImage'); im.src=url; im.style.display='block';
+  });
+  $$('input[name="device"]').forEach(rb=> rb.addEventListener('change',()=>{
+    const box=$('#preview'); box.style.maxWidth = rb.value==='mobile'? '420px':'760px';
+  }));
+
+  // Primary buttons
+  $('#formatBtn').addEventListener('click', runFormat);
+  $('#recommendBtn').addEventListener('click', ()=>{
+    renderRecommendations(recommendVariants(input.value||'')); input.scrollIntoView({behavior:'smooth', block:'center'});
+  });
+  $('#randomBtn').addEventListener('click', ()=>{
+    const base = input.value || '';
+    if(!base.trim()){ alert('Add some text first.'); return; }
+    const v = randomizeFrom(base);
+    liBody.textContent = v; updateCounts();
+  });
+
+  // Clear Formatting (keep text)
+  $('#clearBtn').addEventListener('click', ()=>{
+    let plain = demapToPlain(input.value).normalize('NFKD');
+    plain = removeCombining(plain);
+    plain = stripBullets(stripNumbers(stripQuotes(plain)));
+    input.value = plain;
+    ['stBold','stItalic','stBullets','stNumbers','stQuote','upper','lower','title','tiny','sub','sup','clean','ovStrike','ovUnder','ovOver','ovSlash','ovWavy','ovDot','ovRing','sentStrike'].forEach(id=>{ const el = document.getElementById(id); if(el) el.checked = false; });
+    document.querySelectorAll('input[name="font"]').forEach(el=> el.checked = false);
+    document.querySelector('input[name="sort"][value="none"]').checked = true;
+    $('#recoArea').innerHTML = '';
+    runFormatPreviewOnly();
+  });
+
+  $('#copyBtn').addEventListener('click', ()=> navigator.clipboard.writeText(liBody.textContent||''));
+
+  // Toolkit picker visibility
+  const toolsets = { all: ['basic','lists','fonts','transform','sort','overlays'], basic: ['basic'], lists: ['lists'], fonts: ['fonts'], transform: ['transform'], sort: ['sort'], overlays: ['overlays'] };
+  function renderToolkit(value){ c
