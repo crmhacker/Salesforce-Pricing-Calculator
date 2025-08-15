@@ -4,332 +4,312 @@
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 <title>CRM Hacker — Salesforce Pricing Estimator</title>
-<meta name="description" content="Salesforce Sales Cloud pricing estimator with Agentforce inputs, recommendations, PDF export, and CRM Hacker branding." />
-<!-- Chart.js for the pie chart -->
+<meta name="description" content="Salesforce Sales Cloud pricing estimator with Agentforce models (Flex Credits, per conversation, per-user), recommendations, PDF export, and CRM Hacker branding." />
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-<!-- PDF generation (client-side) -->
 <script src="https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/jspdf@2.5.1/dist/jspdf.umd.min.js"></script>
 <style>
-/* CRM Hacker theme (emerald accent) */
-:root {
-  --emerald: #10b981;
-  --emerald-50: #ecfdf5;
-  --emerald-100: #d1fae5;
-  --ink: #0f172a;
-  --muted: #64748b;
-  --bg: #ffffff;
-  --card: #ffffff;
-  --border: #e5e7eb;
-}
-* { box-sizing: border-box; }
-body { margin:0; background:var(--bg); color:var(--ink);
-  font:16px/1.5 ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Inter, Arial, sans-serif; }
-.container { max-width:1120px; margin:0 auto; padding:16px; }
-.header { padding-top:24px; padding-bottom:8px; }
-.brand { display:flex; align-items:center; gap:10px; }
-.brand-dot { width:14px; height:14px; background:var(--emerald); border-radius:50%; box-shadow:0 0 0 4px var(--emerald-100); }
-.tagline { margin:6px 0 0; color:var(--muted); font-size:12px; }
-.grid { display:grid; grid-template-columns: repeat(6, 1fr); gap:16px; }
-.span-2 { grid-column: span 2; }
-.span-3 { grid-column: span 4; }
-@media (max-width:980px){ .grid{grid-template-columns:1fr;} .span-2,.span-3{grid-column:span 1;} }
-.grid-2 { display:grid; grid-template-columns: repeat(2, 1fr); gap:12px; }
-.grid-3 { display:grid; grid-template-columns: repeat(3, 1fr); gap:12px; }
-.grid-4 { display:grid; grid-template-columns: repeat(4, 1fr); gap:12px; }
-@media (max-width:840px){ .grid-3{grid-template-columns:1fr;} .grid-4{grid-template-columns:1fr 1fr;} }
-.card { background:var(--card); border:1px solid var(--border); border-radius:14px; padding:16px; box-shadow:0 1px 0 rgba(15,23,42,0.03); }
-.card.highlight { border:2px solid var(--emerald-100); }
-.badge { font-size:12px; padding:4px 8px; background:var(--emerald-50); border:1px solid var(--emerald-100); color:var(--ink); border-radius:999px; }
-.row { display:flex; align-items:center; gap:10px; }
-.space-between { justify-content: space-between; }
-.right { margin-left:auto; }
-.field { display:flex; flex-direction:column; gap:6px; }
-label { font-size:12px; color:var(--muted); }
-input, select {
-  width:100%; padding:10px 12px; border:1px solid var(--border); border-radius:10px; outline:none;
-}
-input:focus, select:focus { border-color:var(--emerald); box-shadow:0 0 0 3px var(--emerald-100); }
-.addon { display:flex; align-items:center; justify-content:space-between; gap:12px; border:1px solid var(--border); border-radius:12px; padding:12px; }
-.addon-title { font-weight:600; }
-.addon-sub { font-size:12px; color:var(--muted); }
-.pill { display:inline-block; margin-top:6px; font-size:12px; padding:4px 8px; background:var(--emerald-50); color:#065f46; border-radius:999px; }
-.switch { position:relative; display:inline-block; width:42px; height:24px; }
-.switch input { display:none; }
-.switch span { position:absolute; cursor:pointer; inset:0; background:#e5e7eb; border-radius:999px; transition:all .2s; }
-.switch span:before { content:''; position:absolute; width:18px; height:18px; left:3px; top:3px; background:#fff; border-radius:50%; transition:all .2s; }
-.switch input:checked + span { background:var(--emerald); }
-.switch input:checked + span:before { transform:translateX(18px); }
-.btn { background:var(--emerald); color:white; border:none; border-radius:10px; padding:10px 14px; cursor:pointer; font-weight:600; }
-.btn:hover { filter: brightness(0.95); }
-.btn.ghost { background:#f1f5f9; color:#0f172a; }
-.btn.secondary { background:#0ea5e9; color:white; }
-.muted { color:var(--muted); }
-.small { font-size:12px; }
-.bold { font-weight:600; }
-.big { font-size:22px; font-weight:700; }
-.notice { background:var(--emerald-50); border:1px solid var(--emerald-100); padding:10px; border-radius:10px; margin-bottom:8px; }
-.total { padding:2px 0; }
-hr { border:none; border-top:1px solid var(--border); margin:14px 0; }
-.list { margin:0; padding-left:18px; }
-.footer { padding-top:4px; padding-bottom:20px; color:var(--muted); }
-#resultsCard.exporting { box-shadow:none; }
+:root { --emerald:#10b981; --emerald-50:#ecfdf5; --emerald-100:#d1fae5; --ink:#0f172a; --muted:#64748b; --bg:#fff; --card:#fff; --border:#e5e7eb; }
+*{box-sizing:border-box} body{margin:0;background:var(--bg);color:var(--ink);font:16px/1.5 ui-sans-serif,system-ui,-apple-system,Segoe UI,Roboto,Inter,Arial,sans-serif}
+.container{max-width:1120px;margin:0 auto;padding:16px} .header{padding:24px 16px 8px} .brand{display:flex;align-items:center;gap:10px}
+.brand-dot{width:14px;height:14px;background:var(--emerald);border-radius:50%;box-shadow:0 0 0 4px var(--emerald-100)} .tagline{margin:6px 0 0;color:var(--muted);font-size:12px}
+.grid{display:grid;grid-template-columns:repeat(6,1fr);gap:16px} .span-2{grid-column:span 2} .span-3{grid-column:span 4}
+@media (max-width:980px){.grid{grid-template-columns:1fr}.span-2,.span-3{grid-column:span 1}}
+.grid-2{display:grid;grid-template-columns:repeat(2,1fr);gap:12px} .grid-3{display:grid;grid-template-columns:repeat(3,1fr);gap:12px} .grid-4{display:grid;grid-template-columns:repeat(4,1fr);gap:12px}
+@media (max-width:840px){.grid-3{grid-template-columns:1fr}.grid-4{grid-template-columns:1fr 1fr}}
+.card{background:var(--card);border:1px solid var(--border);border-radius:14px;padding:16px;box-shadow:0 1px 0 rgba(15,23,42,.03)} .card.highlight{border:2px solid var(--emerald-100)}
+.badge{font-size:12px;padding:4px 8px;background:var(--emerald-50);border:1px solid var(--emerald-100);color:var(--ink);border-radius:999px}
+.row{display:flex;align-items:center;gap:10px} .space-between{justify-content:space-between} .right{margin-left:auto}
+.field{display:flex;flex-direction:column;gap:6px} label{font-size:12px;color:var(--muted)}
+input,select{width:100%;padding:10px 12px;border:1px solid var(--border);border-radius:10px;outline:none}
+input:focus,select:focus{border-color:var(--emerald);box-shadow:0 0 0 3px var(--emerald-100)}
+.addon{display:flex;align-items:center;justify-content:space-between;gap:12px;border:1px solid var(--border);border-radius:12px;padding:12px}
+.addon-title{font-weight:600} .addon-sub{font-size:12px;color:var(--muted)} .pill{display:inline-block;margin-top:6px;font-size:12px;padding:4px 8px;background:var(--emerald-50);color:#065f46;border-radius:999px}
+.switch{position:relative;display:inline-block;width:42px;height:24px} .switch input{display:none}
+.switch span{position:absolute;cursor:pointer;inset:0;background:#e5e7eb;border-radius:999px;transition:.2s} .switch span:before{content:'';position:absolute;width:18px;height:18px;left:3px;top:3px;background:#fff;border-radius:50%;transition:.2s}
+.switch input:checked+span{background:var(--emerald)} .switch input:checked+span:before{transform:translateX(18px)}
+.btn{background:var(--emerald);color:#fff;border:none;border-radius:10px;padding:10px 14px;cursor:pointer;font-weight:600} .btn:hover{filter:brightness(.95)}
+.btn.ghost{background:#f1f5f9;color:#0f172a} .btn.secondary{background:#0ea5e9;color:#fff}
+.muted{color:var(--muted)} .small{font-size:12px} .bold{font-weight:600} .big{font-size:22px;font-weight:700}
+.notice{background:var(--emerald-50);border:1px solid var(--emerald-100);padding:10px;border-radius:10px;margin-bottom:8px}
+hr{border:none;border-top:1px solid var(--border);margin:14px 0} .list{margin:0;padding-left:18px} .footer{padding:4px 16px 20px;color:var(--muted)}
+#resultsCard.exporting{box-shadow:none}
 </style>
 </head>
 <body>
-  <header class="container header">
-    <div class="brand">
-      <div class="brand-dot"></div>
-      <h1>Salesforce Sales Cloud Pricing Estimator</h1>
+<header class="container header">
+  <div class="brand"><div class="brand-dot"></div><h1>Salesforce Sales Cloud Pricing Estimator</h1></div>
+  <p class="tagline">CRM Hacker • Estimates only • Billed annually by Salesforce • Excludes taxes/discounts</p>
+</header>
+
+<main class="container grid">
+  <!-- Identity -->
+  <section class="card span-3">
+    <h2>Personalize your estimate</h2>
+    <div class="grid grid-4">
+      <div class="field"><label for="firstName">First name</label><input id="firstName" placeholder="Jane" /></div>
+      <div class="field"><label for="lastName">Last name</label><input id="lastName" placeholder="Doe" /></div>
+      <div class="field"><label for="company">Company</label><input id="company" placeholder="Acme, Inc." /></div>
+      <div class="field"><label for="email">Email</label><input id="email" type="email" placeholder="you@company.com" /></div>
     </div>
-    <p class="tagline">CRM Hacker • Estimates only • Billed annually by Salesforce • Excludes taxes/discounts</p>
-  </header>
+    <p class="muted small">We gate the PDF on these fields. Optionally send to your webhook for lead capture.</p>
+  </section>
 
-  <main class="container grid">
-    <!-- Lead / Personalization -->
-    <section class="card span-3">
-      <h2>Personalize your estimate</h2>
+  <!-- Core config -->
+  <section class="card span-3" id="configCard">
+    <div class="row space-between"><h2>Core configuration</h2><span class="badge">v2025.08</span></div>
+    <div class="grid grid-3">
+      <div class="field"><label for="users">Users</label><input id="users" type="number" min="1" value="15" /></div>
+      <div class="field">
+        <label for="edition">Edition</label>
+        <select id="edition">
+          <option value="starter">Starter Suite — $25</option>
+          <option value="pro">Pro Suite — $100</option>
+          <option value="enterprise" selected>Enterprise — $175</option>
+          <option value="unlimited">Unlimited — $350</option>
+          <option value="agentforce1">Agentforce 1 Sales — $550</option>
+        </select>
+      </div>
+      <div class="field">
+        <label for="successPlan">Success Plan</label>
+        <select id="successPlan">
+          <option value="standard" selected>Standard (included)</option>
+          <option value="premier">Premier (+30%)</option>
+          <option value="signature">Signature (contact sales)</option>
+        </select>
+      </div>
+    </div>
+
+    <hr/>
+
+    <!-- Implementation (moved) -->
+    <div class="grid grid-3">
+      <div class="field">
+        <label for="impl">Implementation package</label>
+        <select id="impl">
+          <option value="none">No Implementation Package</option>
+          <option value="basic">Quick Start — $10,000</option>
+          <option value="standard" selected>Standard — $25,000</option>
+          <option value="advanced">Advanced — $50,000</option>
+        </select>
+        <div class="muted small">One-time CRM Hacker implementation estimate.</div>
+      </div>
+    </div>
+
+    <hr/>
+
+    <!-- Add-ons -->
+    <h3>Add-ons</h3>
+    <div class="grid grid-2">
+      <div class="addon"><div><div class="addon-title">Sales Engagement</div><div class="addon-sub">Cadences, dialer & automation</div><div class="pill">$50/user/mo</div></div><label class="switch"><input id="a_salesEngagement" type="checkbox" checked><span></span></label></div>
+      <div class="addon"><div><div class="addon-title">Einstein Conversation Insights</div><div class="addon-sub">Call recording analysis</div><div class="pill">$50/user/mo</div></div><label class="switch"><input id="a_conversationIntelligence" type="checkbox"><span></span></label></div>
+      <div class="addon"><div><div class="addon-title">Revenue Intelligence</div><div class="addon-sub">Advanced forecasting & pipeline</div><div class="pill">$220/user/mo</div></div><label class="switch"><input id="a_revenueIntelligence" type="checkbox" checked><span></span></label></div>
+      <div class="addon"><div><div class="addon-title">Revenue Cloud (CPQ/Billing)</div><div class="addon-sub">Configure-Price-Quote & Billing</div><div class="pill">$200/user/mo</div></div><label class="switch"><input id="a_revenueCloud" type="checkbox"><span></span></label></div>
+      <div class="addon"><div><div class="addon-title">Salesforce Maps</div><div class="addon-sub">Field routes & territory mapping</div><div class="pill">$75/user/mo</div></div><label class="switch"><input id="a_maps" type="checkbox"><span></span></label></div>
+      <div class="addon"><div><div class="addon-title">Sales Programs</div><div class="addon-sub">Enablement in the flow of work</div><div class="pill">$100/user/mo</div></div><label class="switch"><input id="a_salesPrograms" type="checkbox"><span></span></label></div>
+      <div class="addon"><div><div class="addon-title">Sales Emails & Alerts</div><div class="addon-sub">Email sends & notifications</div><div class="pill">$50/user/mo</div></div><label class="switch"><input id="a_emailsAlerts" type="checkbox"><span></span></label></div>
+      <div class="addon" id="proApiRow" style="display:none;"><div><div class="addon-title">Web Services API (Pro Suite)</div><div class="addon-sub">Enable integrations on Pro</div><div class="pill">$25/user/mo</div></div><label class="switch"><input id="a_apiAddOn" type="checkbox"><span></span></label></div>
+      <div class="card col-2"><div class="grid grid-2"><div class="field"><label for="prmLogins">Partner logins (PRM)</label><input id="prmLogins" type="number" min="0" value="0" /></div><div class="muted">PRM: $10 per partner login/month.</div></div></div>
+    </div>
+
+    <hr/>
+
+    <!-- Agentforce add-on pricing models -->
+    <h3>Agentforce (AI) add-on — pricing model</h3>
+    <div class="grid grid-3">
+      <div class="field">
+        <label for="afModel">Model</label>
+        <select id="afModel">
+          <option value="flex">Flex Credits (per action)</option>
+          <option value="conversation">Per conversation (legacy)</option>
+          <option value="peruser">Per-user add-on</option>
+        </select>
+      </div>
+      <div class="field row">
+        <label for="enableAgentforce">Include Agentforce add-on in totals</label>
+        <label class="switch"><input id="enableAgentforce" type="checkbox"><span></span></label>
+      </div>
+      <div class="muted small">Disabled automatically if you choose the Agentforce 1 Sales edition.</div>
+    </div>
+
+    <!-- Volume helper (feeds conversation/flex) -->
+    <div class="card" style="margin-top:10px">
       <div class="grid grid-4">
-        <div class="field"><label for="firstName">First name</label><input id="firstName" placeholder="Jane" /></div>
-        <div class="field"><label for="lastName">Last name</label><input id="lastName" placeholder="Doe" /></div>
-        <div class="field"><label for="company">Company</label><input id="company" placeholder="Acme, Inc." /></div>
-        <div class="field"><label for="email">Email</label><input id="email" type="email" placeholder="you@company.com" /></div>
+        <div class="field"><label for="convPerRepPerDay">Conversations per rep / day</label><input id="convPerRepPerDay" type="number" min="0" value="8" /></div>
+        <div class="field"><label for="bizDays">Business days / month</label><input id="bizDays" type="number" min="1" value="22" /></div>
+        <div class="field"><label for="aiShare">AI take rate (%)</label><input id="aiShare" type="number" min="0" max="100" value="60" /></div>
+        <div class="field"><label>Estimated AI conversations / month</label><input id="calcMonthlyConvos" disabled /></div>
       </div>
-      <p class="muted small">We’ll use these to personalize your on-screen results and gate the PDF export.</p>
+      <p class="muted small">AI conversations = Users × conv/rep/day × business days × (AI% ÷ 100)</p>
+    </div>
+
+    <!-- Flex Credits fields -->
+    <div id="afFlexFields" class="grid grid-4" style="margin-top:10px">
+      <div class="field"><label for="afActionsPerConvo">Actions per conversation</label><input id="afActionsPerConvo" type="number" min="0" step="0.1" value="1.5" /></div>
+      <div class="field"><label for="afCreditsPerAction">Credits per action</label><input id="afCreditsPerAction" type="number" min="1" value="20" /></div>
+      <div class="field"><label for="afPricePer100k">Price per 100,000 credits (USD)</label><input id="afPricePer100k" type="number" min="0" value="500" /></div>
+      <div class="field row"><label for="afRoundBundles">Round to 100k bundles</label><label class="switch"><input id="afRoundBundles" type="checkbox"><span></span></label></div>
+    </div>
+
+    <!-- Per conversation fields -->
+    <div id="afConvFields" class="grid grid-3" style="display:none;margin-top:10px">
+      <div class="field"><label for="afConvosPerMonth">AI conversations / month</label><input id="afConvosPerMonth" type="number" min="0" value="0" /></div>
+      <div class="field"><label for="afPricePerConvo">Price per conversation (USD)</label><input id="afPricePerConvo" type="number" min="0" step="0.01" value="2.00" /></div>
+      <div class="field"><label>&nbsp;</label><div class="muted small">Default reflects the legacy $2/convo model; edit to your contract.</div></div>
+    </div>
+
+    <!-- Per-user fields -->
+    <div id="afPerUserFields" class="grid grid-3" style="display:none;margin-top:10px">
+      <div class="field"><label for="afPerUserPrice">Agentforce add-on per user / month (USD)</label><input id="afPerUserPrice" type="number" min="0" value="125" /></div>
+      <div class="field"><label>&nbsp;</label><div class="muted small">Example uses Agentforce for Service list ($125/user/mo). Adjust for Sales add-on pricing if applicable.</div></div>
+    </div>
+  </section>
+
+  <!-- Recommend -->
+  <section class="card span-3">
+    <h2>Let us recommend a setup</h2>
+    <div class="grid grid-3">
+      <div class="field"><label for="teamSize">Team size</label><input id="teamSize" type="number" min="1" value="15" /></div>
+      <div class="field"><label for="quotingComplexity">Quoting complexity (0 simple → 2 complex)</label><input id="quotingComplexity" type="number" min="0" max="2" value="2" /></div>
+      <div class="field"><label for="forecastingMaturity">Forecasting maturity (0 basic → 2 advanced)</label><input id="forecastingMaturity" type="number" min="0" max="2" value="1" /></div>
+      <div class="field"><label for="fieldSales">Field sales intensity (0 none → 2 heavy)</label><input id="fieldSales" type="number" min="0" max="2" value="0" /></div>
+      <div class="field"><label for="outboundCadence">Outbound cadences (0 none → 2 with call reviews)</label><input id="outboundCadence" type="number" min="0" max="2" value="1" /></div>
+      <div class="field row"><label for="needIntegrationsAPI">Integrations/API needed</label><label class="switch"><input id="needIntegrationsAPI" type="checkbox" checked><span></span></label></div>
+      <div class="field"><label for="aiPriority">AI priority (0 low → 2 high)</label><input id="aiPriority" type="number" min="0" max="2" value="1" /></div>
+      <div class="field"><label for="budgetSensitivity">Budget sensitivity (0 high budget → 2 cost sensitive)</label><input id="budgetSensitivity" type="number" min="0" max="2" value="1" /></div>
+    </div>
+    <div class="row"><button id="recommendBtn" class="btn">Recommend setup</button><button id="copyBtn" class="btn ghost">Copy summary</button><button id="pdfBtn" class="btn secondary">Get PDF</button></div>
+    <p class="muted small">Recommendations use simple heuristics and public list prices. Final pricing varies by term, volume, promos, and region.</p>
+  </section>
+
+  <!-- Results -->
+  <aside class="span-2">
+    <section class="card highlight" id="resultsCard">
+      <h2>Estimated cost</h2>
+      <div class="notice" id="personalizedLine">Hi there, here’s a ballpark for your company.</div>
+      <div class="grid grid-2 small">
+        <div><div class="muted">Edition</div><div id="outEdition" class="bold"></div></div>
+        <div><div class="muted">Users</div><div id="outUsers" class="bold">15</div></div>
+        <div><div class="muted">Licenses / mo</div><div id="outLicenses" class="bold">$0</div></div>
+        <div><div class="muted">Add-ons / mo</div><div id="outAddons" class="bold">$0</div></div>
+        <div><div class="muted">Success Plan / mo</div><div id="outSuccess" class="bold">$0</div></div>
+        <div><div class="muted">One-time (impl.)</div><div id="outOneTime" class="bold">$0</div></div>
+      </div>
+      <hr/>
+      <div class="row space-between total"><div class="muted">Monthly total</div><div id="outMonthly" class="big">$0</div></div>
+      <div class="row space-between total"><div class="muted">Annual total</div><div id="outAnnual" class="big">$0</div></div>
+      <div style="height:140px"><canvas id="breakdownChart"></canvas></div>
+      <p class="muted small">* List prices in USD. Salesforce typically bills annually. Taxes, promos, multi-year terms, and AE-negotiated discounts are not included.</p>
     </section>
 
-    <!-- Core configuration -->
-    <section class="card span-3" id="configCard">
-      <div class="row space-between">
-        <h2>Core configuration</h2>
-        <span class="badge">v2025.08</span>
-      </div>
-
-      <div class="grid grid-3">
-        <div class="field">
-          <label for="users">Users</label>
-          <input id="users" type="number" min="1" value="15" />
-        </div>
-        <div class="field">
-          <label for="edition">Edition</label>
-          <select id="edition">
-            <option value="starter">Starter Suite — $25</option>
-            <option value="pro">Pro Suite — $100</option>
-            <option value="enterprise" selected>Enterprise — $175</option>
-            <option value="unlimited">Unlimited — $350</option>
-            <option value="agentforce1">Agentforce 1 Sales — $550</option>
-          </select>
-        </div>
-        <div class="field">
-          <label for="successPlan">Success Plan</label>
-          <select id="successPlan">
-            <option value="standard" selected>Standard (included)</option>
-            <option value="premier">Premier (+30%)</option>
-            <option value="signature">Signature (contact sales)</option>
-          </select>
-        </div>
-      </div>
-
-      <hr/>
-
-      <!-- Implementation moved here -->
-      <div class="grid grid-3">
-        <div class="field">
-          <label for="impl">Implementation package</label>
-          <select id="impl">
-            <option value="none">No Implementation Package</option>
-            <option value="basic">Quick Start — $10,000</option>
-            <option value="standard" selected>Standard — $25,000</option>
-            <option value="advanced">Advanced — $50,000</option>
-          </select>
-          <div class="muted small">One-time CRM Hacker implementation estimate.</div>
-        </div>
-      </div>
-
-      <hr/>
-
-      <!-- Add-ons -->
-      <h3>Add-ons</h3>
-      <div class="grid grid-2">
-        <div class="addon">
-          <div><div class="addon-title">Sales Engagement</div><div class="addon-sub">Cadences, dialer & automation</div><div class="pill">$50/user/mo</div></div>
-          <label class="switch"><input id="a_salesEngagement" type="checkbox" checked><span></span></label>
-        </div>
-        <div class="addon">
-          <div><div class="addon-title">Einstein Conversation Insights</div><div class="addon-sub">Call recording analysis</div><div class="pill">$50/user/mo</div></div>
-          <label class="switch"><input id="a_conversationIntelligence" type="checkbox"><span></span></label>
-        </div>
-        <div class="addon">
-          <div><div class="addon-title">Revenue Intelligence</div><div class="addon-sub">Advanced forecasting & pipeline</div><div class="pill">$220/user/mo</div></div>
-          <label class="switch"><input id="a_revenueIntelligence" type="checkbox" checked><span></span></label>
-        </div>
-        <div class="addon">
-          <div><div class="addon-title">Revenue Cloud (CPQ/Billing)</div><div class="addon-sub">Configure-Price-Quote & Billing</div><div class="pill">$200/user/mo</div></div>
-          <label class="switch"><input id="a_revenueCloud" type="checkbox"><span></span></label>
-        </div>
-        <div class="addon">
-          <div><div class="addon-title">Salesforce Maps</div><div class="addon-sub">Field routes & territory mapping</div><div class="pill">$75/user/mo</div></div>
-          <label class="switch"><input id="a_maps" type="checkbox"><span></span></label>
-        </div>
-        <div class="addon">
-          <div><div class="addon-title">Sales Programs</div><div class="addon-sub">Enablement in the flow of work</div><div class="pill">$100/user/mo</div></div>
-          <label class="switch"><input id="a_salesPrograms" type="checkbox"><span></span></label>
-        </div>
-        <div class="addon">
-          <div><div class="addon-title">Sales Emails & Alerts</div><div class="addon-sub">Email sends & notifications</div><div class="pill">$50/user/mo</div></div>
-          <label class="switch"><input id="a_emailsAlerts" type="checkbox"><span></span></label>
-        </div>
-        <div class="addon" id="proApiRow" style="display:none;">
-          <div><div class="addon-title">Web Services API (Pro Suite)</div><div class="addon-sub">Enable integrations on Pro</div><div class="pill">$25/user/mo</div></div>
-          <label class="switch"><input id="a_apiAddOn" type="checkbox"><span></span></label>
-        </div>
-        <div class="card col-2">
-          <div class="grid grid-2">
-            <div class="field"><label for="prmLogins">Partner logins (PRM)</label><input id="prmLogins" type="number" min="0" value="0" /></div>
-            <div class="muted">PRM: $10 per partner login/month.</div>
-          </div>
-        </div>
-      </div>
-
-      <hr/>
-
-      <!-- Agentforce (AI) section -->
-      <h3>Agentforce (AI) add-ons</h3>
-      <p class="muted small">If you’re not selecting the “Agentforce 1 Sales” edition, you can include AI estimates here.</p>
-      <div class="grid grid-3">
-        <div class="field row">
-          <label for="enableAgentforce">Include Agentforce add-on (estimate)</label>
-          <label class="switch"><input id="enableAgentforce" type="checkbox"><span></span></label>
-        </div>
-        <div class="field">
-          <label for="agentforcePerUser">Agentforce per-user / month (USD)</label>
-          <input id="agentforcePerUser" type="number" min="0" step="1" value="0" />
-        </div>
-        <div class="field">
-          <label for="agentforceOrg">Agentforce org-wide / month (USD)</label>
-          <input id="agentforceOrg" type="number" min="0" step="1" value="0" />
-        </div>
-      </div>
+    <section class="card">
+      <h2>Pricing sources</h2>
+      <ul class="list small">
+        <li>Sales Cloud editions: Starter, Pro, Enterprise, Unlimited, Agentforce 1 Sales</li>
+        <li>Agentforce pricing models: Conversation-based, Flex Credits, and per-user licensing</li>
+        <li>Premier Success Plan: +30% of net license (Unlimited includes Premier)</li>
+      </ul>
     </section>
+  </aside>
+</main>
 
-    <!-- Recommend -->
-    <section class="card span-3">
-      <h2>Let us recommend a setup</h2>
-      <div class="grid grid-3">
-        <div class="field"><label for="teamSize">Team size</label><input id="teamSize" type="number" min="1" value="15" /></div>
-        <div class="field"><label for="quotingComplexity">Quoting complexity (0 simple → 2 complex)</label><input id="quotingComplexity" type="number" min="0" max="2" value="2" /></div>
-        <div class="field"><label for="forecastingMaturity">Forecasting maturity (0 basic → 2 advanced)</label><input id="forecastingMaturity" type="number" min="0" max="2" value="1" /></div>
-        <div class="field"><label for="fieldSales">Field sales intensity (0 none → 2 heavy)</label><input id="fieldSales" type="number" min="0" max="2" value="0" /></div>
-        <div class="field"><label for="outboundCadence">Outbound cadences (0 none → 2 with call reviews)</label><input id="outboundCadence" type="number" min="0" max="2" value="1" /></div>
-        <div class="field row">
-          <label for="needIntegrationsAPI">Integrations/API needed</label>
-          <label class="switch"><input id="needIntegrationsAPI" type="checkbox" checked><span></span></label>
-        </div>
-        <div class="field"><label for="aiPriority">AI priority (0 low → 2 high)</label><input id="aiPriority" type="number" min="0" max="2" value="1" /></div>
-        <div class="field"><label for="budgetSensitivity">Budget sensitivity (0 high budget → 2 cost sensitive)</label><input id="budgetSensitivity" type="number" min="0" max="2" value="1" /></div>
-      </div>
-      <div class="row">
-        <button id="recommendBtn" class="btn">Recommend setup</button>
-        <button id="copyBtn" class="btn ghost">Copy summary</button>
-        <button id="pdfBtn" class="btn secondary">Get PDF</button>
-      </div>
-      <p class="muted small">Recommendations use simple heuristics and public list prices. Final pricing varies by term, volume, promos, and region.</p>
-    </section>
-
-    <!-- Results -->
-    <aside class="span-2">
-      <section class="card highlight" id="resultsCard">
-        <h2>Estimated cost</h2>
-        <div class="notice" id="personalizedLine">Hi there, here’s a ballpark for your company.</div>
-        <div class="grid grid-2 small">
-          <div><div class="muted">Edition</div><div id="outEdition" class="bold"></div></div>
-          <div><div class="muted">Users</div><div id="outUsers" class="bold">15</div></div>
-          <div><div class="muted">Licenses / mo</div><div id="outLicenses" class="bold">$0</div></div>
-          <div><div class="muted">Add-ons / mo</div><div id="outAddons" class="bold">$0</div></div>
-          <div><div class="muted">Success Plan / mo</div><div id="outSuccess" class="bold">$0</div></div>
-          <div><div class="muted">One-time (impl.)</div><div id="outOneTime" class="bold">$0</div></div>
-        </div>
-        <hr/>
-        <div class="row space-between total"><div class="muted">Monthly total</div><div id="outMonthly" class="big">$0</div></div>
-        <div class="row space-between total"><div class="muted">Annual total</div><div id="outAnnual" class="big">$0</div></div>
-        <!-- Smaller chart -->
-        <div style="height:140px"><canvas id="breakdownChart"></canvas></div>
-        <p class="muted small">* List prices in USD. Salesforce typically bills annually. Taxes, promos, multi-year terms, and AE-negotiated discounts are not included.</p>
-      </section>
-
-      <section class="card">
-        <h2>Pricing sources</h2>
-        <ul class="list small">
-          <li>Sales Cloud editions: Starter, Pro, Enterprise, Unlimited, Agentforce 1 Sales</li>
-          <li>Add-ons: Sales Engagement, Conversation Insights, Revenue Intelligence, Revenue Cloud, Maps, Sales Programs, PRM, Pro API add-on</li>
-          <li>Agentforce inputs are estimates so you can include AI spend if not on Agentforce 1 Sales.</li>
-          <li>Premier Success Plan: +30% of net license (Unlimited includes Premier)</li>
-        </ul>
-      </section>
-    </aside>
-  </main>
-
-  <footer class="container footer small">
-    <div>© CRM Hacker — Estimates only.</div>
-    <div class="right"><a href="https://crmhacker.com" target="_blank" rel="noopener">crmhacker.com</a></div>
-  </footer>
+<footer class="container footer small">
+  <div>© CRM Hacker — Estimates only.</div>
+  <div class="right"><a href="https://crmhacker.com" target="_blank" rel="noopener">crmhacker.com</a></div>
+</footer>
 
 <script>
-/*** CONFIG: set this to your Web-to-Lead / webhook to capture the form when PDF is requested ***/
+/*** Optional: set to your Web-to-Lead / webhook to capture leads when PDF is requested ***/
 const FORM_ENDPOINT = null; // e.g. "https://hooks.zapier.com/..." or your Salesforce Web-to-Lead endpoint
 
-/*** PRICING ***/
+/*** Catalog ***/
 const PRICING = {
   editions: {
-    starter: { key:"starter", name:"Starter Suite", price:25, per:"user" },
-    pro: { key:"pro", name:"Pro Suite", price:100, per:"user" },
-    enterprise: { key:"enterprise", name:"Enterprise", price:175, per:"user" },
-    unlimited: { key:"unlimited", name:"Unlimited", price:350, per:"user" },
-    agentforce1: { key:"agentforce1", name:"Agentforce 1 Sales", price:550, per:"user" }
+    starter:{key:"starter",name:"Starter Suite",price:25,per:"user"},
+    pro:{key:"pro",name:"Pro Suite",price:100,per:"user"},
+    enterprise:{key:"enterprise",name:"Enterprise",price:175,per:"user"},
+    unlimited:{key:"unlimited",name:"Unlimited",price:350,per:"user"},
+    agentforce1:{key:"agentforce1",name:"Agentforce 1 Sales",price:550,per:"user"}
   },
   addons: {
-    apiAddOn: { key:"apiAddOn", name:"Web Services API (Pro Suite)", price:25, per:"user" },
-    salesEngagement: { key:"salesEngagement", name:"Sales Engagement", price:50, per:"user" },
-    conversationIntelligence: { key:"conversationIntelligence", name:"Einstein Conversation Insights", price:50, per:"user" },
-    revenueIntelligence: { key:"revenueIntelligence", name:"Revenue Intelligence", price:220, per:"user" },
-    revenueCloud: { key:"revenueCloud", name:"Revenue Cloud (CPQ/Billing)", price:200, per:"user" },
-    maps: { key:"maps", name:"Salesforce Maps", price:75, per:"user" },
-    salesPrograms: { key:"salesPrograms", name:"Sales Programs", price:100, per:"user" },
-    emailsAlerts: { key:"emailsAlerts", name:"Sales Emails & Alerts", price:50, per:"user" },
-    prmLogins: { key:"prmLogins", name:"Partner Relationship Management", price:10, per:"login" }
+    apiAddOn:{key:"apiAddOn",name:"Web Services API (Pro Suite)",price:25,per:"user"},
+    salesEngagement:{key:"salesEngagement",name:"Sales Engagement",price:50,per:"user"},
+    conversationIntelligence:{key:"conversationIntelligence",name:"Einstein Conversation Insights",price:50,per:"user"},
+    revenueIntelligence:{key:"revenueIntelligence",name:"Revenue Intelligence",price:220,per:"user"},
+    revenueCloud:{key:"revenueCloud",name:"Revenue Cloud (CPQ/Billing)",price:200,per:"user"},
+    maps:{key:"maps",name:"Salesforce Maps",price:75,per:"user"},
+    salesPrograms:{key:"salesPrograms",name:"Sales Programs",price:100,per:"user"},
+    emailsAlerts:{key:"emailsAlerts",name:"Sales Emails & Alerts",price:50,per:"user"},
+    prmLogins:{key:"prmLogins",name:"Partner Relationship Management",price:10,per:"login"}
   },
-  successPlans: {
-    standard: { key:"standard", name:"Standard (included)", rate:0 },
-    premier: { key:"premier", name:"Premier (+30% of license)", rate:0.3 },
-    signature: { key:"signature", name:"Signature (contact sales)", rate:null }
+  successPlans:{
+    standard:{key:"standard",name:"Standard (included)",rate:0},
+    premier:{key:"premier",name:"Premier (+30% of license)",rate:0.3},
+    signature:{key:"signature",name:"Signature (contact sales)",rate:null}
   },
-  implementation: {
-    none:{ key:"none", name:"No Implementation Package", fee:0 },
-    basic:{ key:"basic", name:"Quick Start (CRM Hacker)", fee:10000 },
-    standard:{ key:"standard", name:"Standard (CRM Hacker)", fee:25000 },
-    advanced:{ key:"advanced", name:"Advanced (CRM Hacker)", fee:50000 }
+  implementation:{
+    none:{key:"none",name:"No Implementation Package",fee:0},
+    basic:{key:"basic",name:"Quick Start (CRM Hacker)",fee:10000},
+    standard:{key:"standard",name:"Standard (CRM Hacker)",fee:25000},
+    advanced:{key:"advanced",name:"Advanced (CRM Hacker)",fee:50000}
   }
 };
-const $ = (id) => document.getElementById(id);
+const $ = id => document.getElementById(id);
 
-/*** STATE ***/
+/*** State ***/
 const state = {
   firstName:"", lastName:"", company:"", email:"",
   users:15, edition:"enterprise", successPlan:"standard", impl:"standard",
-  addons:{
-    apiAddOn:false, salesEngagement:true, conversationIntelligence:false,
-    revenueIntelligence:true, revenueCloud:false, maps:false,
-    salesPrograms:false, emailsAlerts:false, prmLogins:0
+  addons:{ apiAddOn:false, salesEngagement:true, conversationIntelligence:false, revenueIntelligence:true, revenueCloud:false, maps:false, salesPrograms:false, emailsAlerts:false, prmLogins:0 },
+  agentforce:{
+    enabled:false,
+    model:"flex", // flex | conversation | peruser
+    // volume helpers
+    convPerRepPerDay:8, bizDays:22, aiShare:60,
+    // flex
+    actionsPerConvo:1.5, creditsPerAction:20, pricePer100k:500, roundBundles:false,
+    // conversation
+    convosPerMonthOverride:0, pricePerConvo:2.00,
+    // per-user
+    perUserPrice:125
   },
-  agentforce:{ enabled:false, perUser:0, orgMonthly:0 },
-  signals:{
-    teamSize:15, quotingComplexity:2, forecastingMaturity:1, fieldSales:0,
-    outboundCadence:1, needIntegrationsAPI:true, aiPriority:1, budgetSensitivity:1
-  }
+  signals:{ teamSize:15, quotingComplexity:2, forecastingMaturity:1, fieldSales:0, outboundCadence:1, needIntegrationsAPI:true, aiPriority:1, budgetSensitivity:1 }
 };
 
 function currency(n){ return n.toLocaleString(undefined,{style:"currency",currency:"USD",maximumFractionDigits:0}); }
 
+/*** Agentforce math ***/
+function monthlyAIConversations(){
+  const {convPerRepPerDay,bizDays,aiShare} = state.agentforce;
+  const est = state.users * convPerRepPerDay * bizDays * (aiShare/100);
+  const override = Number($("#afConvosPerMonth")?.value || 0);
+  if (state.agentforce.model === "conversation" && override>0) return override;
+  return est;
+}
+function agentforceAddonMonthly(){
+  if (!state.agentforce.enabled || state.edition==="agentforce1") return 0;
+  const model = state.agentforce.model;
+  if (model==="flex"){
+    const convos = monthlyAIConversations();
+    const actions = convos * state.agentforce.actionsPerConvo;
+    const credits = actions * state.agentforce.creditsPerAction;                 // default: 20 credits/action
+    const costPerCredit = state.agentforce.pricePer100k/100000;                  // default: $500/100k = $0.005/credit
+    if (state.agentforce.roundBundles){
+      const bundles = Math.ceil(credits/100000);
+      return bundles * state.agentforce.pricePer100k;
+    } else {
+      return credits * costPerCredit;                                            // pro-rata estimate
+    }
+  } else if (model==="conversation"){
+    const convos = monthlyAIConversations();
+    return convos * state.agentforce.pricePerConvo;                              // default $2 per conversation
+  } else if (model==="peruser"){
+    return state.users * state.agentforce.perUserPrice;                          // e.g., $125/user/mo (Service)
+  }
+  return 0;
+}
+
+/*** Core compute ***/
 function compute(){
   const editionPrice = PRICING.editions[state.edition].price;
   const perUserAddOns = [];
@@ -340,18 +320,17 @@ function compute(){
   if (state.addons.maps) perUserAddOns.push(PRICING.addons.maps);
   if (state.addons.salesPrograms) perUserAddOns.push(PRICING.addons.salesPrograms);
   if (state.addons.emailsAlerts) perUserAddOns.push(PRICING.addons.emailsAlerts);
-  if (state.edition === "pro" && state.addons.apiAddOn) perUserAddOns.push(PRICING.addons.apiAddOn);
+  if (state.edition==="pro" && state.addons.apiAddOn) perUserAddOns.push(PRICING.addons.apiAddOn);
 
   const licenseMonthly = state.users * editionPrice;
-  let addonsMonthly = perUserAddOns.reduce((sum,a)=> sum + state.users*a.price, 0) + (state.addons.prmLogins||0) * PRICING.addons.prmLogins.price;
+  let addonsMonthly = perUserAddOns.reduce((sum,a)=> sum + state.users * a.price, 0) + (state.addons.prmLogins||0) * PRICING.addons.prmLogins.price;
 
-  // Agentforce add if enabled and not Agentforce 1 edition
-  if (state.agentforce.enabled && state.edition !== "agentforce1"){
-    addonsMonthly += (state.agentforce.perUser * state.users) + state.agentforce.orgMonthly;
-  }
+  // Agentforce add-on (new models)
+  addonsMonthly += agentforceAddonMonthly();
 
+  // Success plan (Unlimited bundles Premier effectively 0%)
   let successRate = PRICING.successPlans[state.successPlan].rate || 0;
-  if (state.edition === "unlimited" && state.successPlan === "premier") successRate = 0; // Unlimited includes Premier
+  if (state.edition==="unlimited" && state.successPlan==="premier") successRate = 0;
   const successMonthly = (licenseMonthly + addonsMonthly) * successRate;
 
   const monthlyTotal = licenseMonthly + addonsMonthly + successMonthly;
@@ -360,43 +339,48 @@ function compute(){
   return { licenseMonthly, addonsMonthly, successMonthly, monthlyTotal, annualTotal, oneTime };
 }
 
+/*** Recommend (unchanged logic, nudges Agentforce 1 for high AI) ***/
 function recommend(){
   const s = state.signals;
   let nextEdition = state.edition;
-  if (s.aiPriority === 2 && s.teamSize >= 25) nextEdition = "agentforce1";
-  else if (s.quotingComplexity === 2 || s.needIntegrationsAPI) nextEdition = "enterprise";
-  else if (s.teamSize <= 10 && s.budgetSensitivity === 2) nextEdition = "starter";
-  else if (s.teamSize <= 20 && s.budgetSensitivity >= 1) nextEdition = "pro";
-  else nextEdition = "enterprise";
-
-  state.edition = nextEdition; $("edition").value = nextEdition;
-  state.users = Number(s.teamSize); $("users").value = state.users;
-
-  state.addons.salesEngagement = s.outboundCadence >= 1; $("a_salesEngagement").checked = state.addons.salesEngagement;
-  state.addons.conversationIntelligence = s.outboundCadence === 2; $("a_conversationIntelligence").checked = state.addons.conversationIntelligence;
-  state.addons.revenueIntelligence = s.forecastingMaturity >= 1; $("a_revenueIntelligence").checked = state.addons.revenueIntelligence;
-  state.addons.revenueCloud = s.quotingComplexity === 2; $("a_revenueCloud").checked = state.addons.revenueCloud;
-  state.addons.maps = s.fieldSales >= 1; $("a_maps").checked = state.addons.maps;
-  state.addons.salesPrograms = s.outboundCadence >= 1 && s.teamSize >= 15; $("a_salesPrograms").checked = state.addons.salesPrograms;
-  state.addons.apiAddOn = (state.edition === "pro" && s.needIntegrationsAPI); $("a_apiAddOn").checked = state.addons.apiAddOn;
+  if (s.aiPriority===2 && s.teamSize>=25) nextEdition="agentforce1";
+  else if (s.quotingComplexity===2 || s.needIntegrationsAPI) nextEdition="enterprise";
+  else if (s.teamSize<=10 && s.budgetSensitivity===2) nextEdition="starter";
+  else if (s.teamSize<=20 && s.budgetSensitivity>=1) nextEdition="pro";
+  else nextEdition="enterprise";
+  state.edition=nextEdition; $("edition").value=nextEdition;
+  state.users=Number(s.teamSize); $("users").value=state.users;
+  state.addons.salesEngagement = s.outboundCadence>=1; $("a_salesEngagement").checked=state.addons.salesEngagement;
+  state.addons.conversationIntelligence = s.outboundCadence===2; $("a_conversationIntelligence").checked=state.addons.conversationIntelligence;
+  state.addons.revenueIntelligence = s.forecastingMaturity>=1; $("a_revenueIntelligence").checked=state.addons.revenueIntelligence;
+  state.addons.revenueCloud = s.quotingComplexity===2; $("a_revenueCloud").checked=state.addons.revenueCloud;
+  state.addons.maps = s.fieldSales>=1; $("a_maps").checked=state.addons.maps;
+  state.addons.salesPrograms = s.outboundCadence>=1 && s.teamSize>=15; $("a_salesPrograms").checked=state.addons.salesPrograms;
+  state.addons.apiAddOn = (state.edition==="pro" && s.needIntegrationsAPI); $("a_apiAddOn").checked=state.addons.apiAddOn;
   render();
 }
 
+/*** UI updates ***/
 let chart;
 function updateChart(out){
   const ctx = $("breakdownChart").getContext("2d");
-  const data = {
-    labels:["Licenses","Add-ons","Success Plan"],
-    datasets:[{ data:[Math.round(out.licenseMonthly), Math.round(out.addonsMonthly), Math.round(out.successMonthly)],
-      backgroundColor:["#10b981","#0ea5e9","#a78bfa"] }]
-  };
-  const options = { plugins:{ legend:{ position:"bottom" } }, maintainAspectRatio:false };
-  if (chart){ chart.data = data; chart.update(); }
-  else { chart = new Chart(ctx, { type:"doughnut", data, options }); }
+  const data = { labels:["Licenses","Add-ons","Success Plan"],
+    datasets:[{ data:[Math.round(out.licenseMonthly),Math.round(out.addonsMonthly),Math.round(out.successMonthly)],
+      backgroundColor:["#10b981","#0ea5e9","#a78bfa"] }] };
+  const opts = { plugins:{legend:{position:"bottom"}}, maintainAspectRatio:false };
+  if (chart){ chart.data=data; chart.update(); } else { chart = new Chart(ctx,{type:"doughnut",data,options:opts}); }
 }
-
 function render(){
-  $("proApiRow").style.display = state.edition === "pro" ? "flex" : "none";
+  $("proApiRow").style.display = state.edition==="pro" ? "flex" : "none";
+  // Disable Agentforce add-on on Agentforce 1 Sales
+  const disableAF = state.edition==="agentforce1";
+  $("enableAgentforce").disabled = disableAF;
+  if (disableAF) $("enableAgentforce").checked = false, state.agentforce.enabled=false;
+
+  // Volume helper calc
+  const estConvos = state.users * state.agentforce.convPerRepPerDay * state.agentforce.bizDays * (state.agentforce.aiShare/100);
+  $("calcMonthlyConvos").value = Math.round(estConvos);
+
   const out = compute();
   $("outEdition").textContent = PRICING.editions[state.edition].name;
   $("outUsers").textContent = state.users;
@@ -406,96 +390,126 @@ function render(){
   $("outOneTime").textContent = currency(out.oneTime);
   $("outMonthly").textContent = currency(out.monthlyTotal);
   $("outAnnual").textContent = currency(out.annualTotal);
+
   const name = state.firstName ? `Hey ${state.firstName}` : "Hi there";
   const org = state.company || "your company";
   const email = state.email || "(add email)";
   $("personalizedLine").textContent = `${name}, here’s a ballpark for ${org}. We’ll email you a copy at ${email} if you hit copy.`;
+
   updateChart(out);
 }
 
+/*** Helpers ***/
 function copySummary(){
   const out = compute();
   const addonsList = Object.entries(state.addons)
-    .filter(([k,v]) => k !== "prmLogins" ? !!v : v > 0)
-    .map(([k,v]) => k === "prmLogins" ? `${PRICING.addons.prmLogins.name} x ${v}` : PRICING.addons[k].name)
+    .filter(([k,v]) => k!=="prmLogins" ? !!v : v>0)
+    .map(([k,v]) => k==="prmLogins" ? `${PRICING.addons.prmLogins.name} x ${v}` : PRICING.addons[k].name)
     .join(", ") || "None";
-  const aforce = (state.agentforce.enabled && state.edition !== "agentforce1")
-    ? `; Agentforce add-on included: ${currency(state.agentforce.perUser)}/user/mo + ${currency(state.agentforce.orgMonthly)}/org/mo` : "";
+  let afNote = "";
+  if (state.agentforce.enabled && state.edition!=="agentforce1"){
+    if (state.agentforce.model==="flex"){
+      const convos = monthlyAIConversations();
+      afNote = `Agentforce Flex Credits: ${Math.round(convos)} convos/mo × ${state.agentforce.actionsPerConvo} actions × ${state.agentforce.creditsPerAction} credits/action @ $${state.agentforce.pricePer100k}/100k`;
+      if (state.agentforce.roundBundles) afNote += " (rounded to bundles)";
+    } else if (state.agentforce.model==="conversation"){
+      const convos = monthlyAIConversations();
+      afNote = `Agentforce per conversation: ${Math.round(convos)} convos/mo @ ${currency(state.agentforce.pricePerConvo)} each`;
+    } else {
+      afNote = `Agentforce per user: ${state.users} users @ ${currency(state.agentforce.perUserPrice)}/user/mo`;
+    }
+  }
   const lines = [
     `${state.firstName ? state.firstName + "," : ""} Here’s your Salesforce estimate for ${state.company || "your company"}:`,
     `Edition: ${PRICING.editions[state.edition].name} (${currency(PRICING.editions[state.edition].price)}/user/mo)`,
     `Users: ${state.users}`,
-    `Add-ons: ${addonsList}${aforce}`,
+    `Add-ons: ${addonsList}${afNote?"; "+afNote:""}`,
     `Success Plan: ${PRICING.successPlans[state.successPlan].name}`,
-    ``,
     `Monthly Total: ${currency(out.monthlyTotal)} (Licenses ${currency(out.licenseMonthly)} + Add-ons ${currency(out.addonsMonthly)} + Success ${currency(out.successMonthly)})`,
     `Annual Total: ${currency(out.annualTotal)}`,
     `One-time (Implementation): ${currency(out.oneTime)}`,
-    ``,
     `Disclaimer: Estimates only. Salesforce bills annually; taxes/discounts not included.`
   ].join("\n");
   navigator.clipboard.writeText(lines).catch(()=>{});
 }
 
 async function exportPDF(){
-  const required = ["firstName","lastName","company","email"];
-  for (const id of required){
-    const val = $(id).value?.trim();
-    if (!val){ alert("Please complete First name, Last name, Company, and Email to receive the PDF."); return; }
-  }
-  // Optional: send lead to your endpoint
+  const req = ["firstName","lastName","company","email"];
+  for (const id of req){ if (!$(id).value?.trim()){ alert("Please complete First name, Last name, Company, and Email to receive the PDF."); return; } }
+  // optional lead post
   if (FORM_ENDPOINT){
-    try {
-      await fetch(FORM_ENDPOINT, {
-        method:"POST", headers:{ "Content-Type":"application/json" },
-        body: JSON.stringify({
-          firstName:$("firstName").value, lastName:$("lastName").value,
-          company:$("company").value, email:$("email").value,
-          users:state.users, edition:state.edition, successPlan:state.successPlan,
-          impl:state.impl, addons:state.addons, agentforce:state.agentforce, totals:compute()
-        })
-      });
-    } catch(e){ console.warn("Form endpoint error:", e); }
+    try{ await fetch(FORM_ENDPOINT,{method:"POST",headers:{"Content-Type":"application/json"},
+      body: JSON.stringify({ firstName:$("firstName").value,lastName:$("lastName").value,company:$("company").value,email:$("email").value,
+        users:state.users, edition:state.edition, successPlan:state.successPlan, impl:state.impl,
+        addons:state.addons, agentforce:state.agentforce, totals:compute() }) }); }catch(e){ console.warn("Form endpoint error:",e); }
   }
-  const { jsPDF } = window.jspdf;
-  const pdf = new jsPDF({ unit:"pt", format:"a4" });
-  pdf.setFont("helvetica","bold"); pdf.setFontSize(18);
-  pdf.text("CRM Hacker — Salesforce Pricing Estimate", 40, 40);
+  const { jsPDF } = window.jspdf; const pdf = new jsPDF({unit:"pt",format:"a4"});
+  pdf.setFont("helvetica","bold"); pdf.setFontSize(18); pdf.text("CRM Hacker — Salesforce Pricing Estimate",40,40);
   pdf.setFont("helvetica","normal"); pdf.setFontSize(11);
-  pdf.text(`Prepared for: ${$("firstName").value} ${$("lastName").value} — ${$("company").value}`, 40, 60);
-  pdf.text(`Email: ${$("email").value}`, 40, 76);
-  const card = document.getElementById("resultsCard");
-  card.classList.add("exporting");
-  const canvas = await html2canvas(card, { scale: 2, backgroundColor:"#ffffff" });
-  card.classList.remove("exporting");
-  const img = canvas.toDataURL("image/png");
-  const imgWidth = 515;
-  const imgHeight = canvas.height * (imgWidth / canvas.width);
-  pdf.addImage(img, "PNG", 40, 100, imgWidth, imgHeight);
-  pdf.save("CRM-Hacker-Salesforce-Pricing-Estimate.pdf");
+  pdf.text(`Prepared for: ${$("firstName").value} ${$("lastName").value} — ${$("company").value}`,40,60);
+  pdf.text(`Email: ${$("email").value}`,40,76);
+  const card = document.getElementById("resultsCard"); card.classList.add("exporting");
+  const canvas = await html2canvas(card,{scale:2,backgroundColor:"#ffffff"}); card.classList.remove("exporting");
+  const img = canvas.toDataURL("image/png"); const imgW = 515; const imgH = canvas.height*(imgW/canvas.width);
+  pdf.addImage(img,"PNG",40,100,imgW,imgH); pdf.save("CRM-Hacker-Salesforce-Pricing-Estimate.pdf");
 }
 
+/*** Bindings ***/
+function bind(id, fn, evt="input"){ const el=$(id); if (!el) return; el.addEventListener(evt, fn); }
+
 function initBindings(){
-  ["firstName","lastName","company","email"].forEach(id => { $(id).addEventListener("input", e => { state[id]=e.target.value; render(); }); });
-  $("users").addEventListener("input", e => { state.users=Math.max(1, Number(e.target.value||1)); render(); });
-  $("edition").addEventListener("change", e => { state.edition=e.target.value; render(); });
-  $("successPlan").addEventListener("change", e => { state.successPlan=e.target.value; render(); });
-  $("impl").addEventListener("change", e => { state.impl=e.target.value; render(); });
-  ["salesEngagement","conversationIntelligence","revenueIntelligence","revenueCloud","maps","salesPrograms","emailsAlerts","apiAddOn"].forEach(key=>{
-    const el = $("a_"+key); if (el) el.addEventListener("change", e=>{ state.addons[key]=e.target.checked; render(); });
+  ["firstName","lastName","company","email"].forEach(id=> bind(id, e=>{ state[id]=e.target.value; render(); }));
+  bind("users", e=>{ state.users=Math.max(1,Number(e.target.value||1)); render(); });
+  bind("edition", e=>{ state.edition=e.target.value; render(); }, "change");
+  bind("successPlan", e=>{ state.successPlan=e.target.value; render(); }, "change");
+  bind("impl", e=>{ state.impl=e.target.value; render(); }, "change");
+  ["salesEngagement","conversationIntelligence","revenueIntelligence","revenueCloud","maps","salesPrograms","emailsAlerts","apiAddOn"].forEach(k=>{
+    const el=$("a_"+k); if (el) el.addEventListener("change", e=>{ state.addons[k]=e.target.checked; render(); });
   });
-  $("prmLogins").addEventListener("input", e=>{ state.addons.prmLogins=Math.max(0, Number(e.target.value||0)); render(); });
-  $("enableAgentforce").addEventListener("change", e=>{ state.agentforce.enabled=e.target.checked; render(); });
-  $("agentforcePerUser").addEventListener("input", e=>{ state.agentforce.perUser=Math.max(0, Number(e.target.value||0)); render(); });
-  $("agentforceOrg").addEventListener("input", e=>{ state.agentforce.orgMonthly=Math.max(0, Number(e.target.value||0)); render(); });
-  ["teamSize","quotingComplexity","forecastingMaturity","fieldSales","outboundCadence","aiPriority","budgetSensitivity"].forEach(id=>{
-    $(id).addEventListener("input", e=>{ state.signals[id]=Number(e.target.value||0); });
-  });
-  $("needIntegrationsAPI").addEventListener("change", e=>{ state.signals.needIntegrationsAPI=e.target.checked; });
-  $("recommendBtn").addEventListener("click", recommend);
-  $("copyBtn").addEventListener("click", copySummary);
-  $("pdfBtn").addEventListener("click", exportPDF);
+  bind("prmLogins", e=>{ state.addons.prmLogins=Math.max(0,Number(e.target.value||0)); render(); });
+
+  // Agentforce model & enable
+  bind("enableAgentforce", e=>{ state.agentforce.enabled=e.target.checked; render(); });
+  bind("afModel", e=>{
+    state.agentforce.model=e.target.value;
+    document.getElementById("afFlexFields").style.display = state.agentforce.model==="flex" ? "grid":"none";
+    document.getElementById("afConvFields").style.display  = state.agentforce.model==="conversation" ? "grid":"none";
+    document.getElementById("afPerUserFields").style.display = state.agentforce.model==="peruser" ? "grid":"none";
+    render();
+  }, "change");
+
+  // Volume helper inputs
+  bind("convPerRepPerDay", e=>{ state.agentforce.convPerRepPerDay=Math.max(0,Number(e.target.value||0)); render(); });
+  bind("bizDays", e=>{ state.agentforce.bizDays=Math.max(0,Number(e.target.value||0)); render(); });
+  bind("aiShare", e=>{ state.agentforce.aiShare=Math.min(100,Math.max(0,Number(e.target.value||0))); render(); });
+
+  // Flex fields
+  bind("afActionsPerConvo", e=>{ state.agentforce.actionsPerConvo=Math.max(0,Number(e.target.value||0)); render(); });
+  bind("afCreditsPerAction", e=>{ state.agentforce.creditsPerAction=Math.max(1,Number(e.target.value||1)); render(); });
+  bind("afPricePer100k", e=>{ state.agentforce.pricePer100k=Math.max(0,Number(e.target.value||0)); render(); });
+  bind("afRoundBundles", e=>{ state.agentforce.roundBundles=e.target.checked; render(); }, "change");
+
+  // Per conversation fields
+  bind("afConvosPerMonth", e=>{ state.agentforce.convosPerMonthOverride=Math.max(0,Number(e.target.value||0)); render(); });
+  bind("afPricePerConvo", e=>{ state.agentforce.pricePerConvo=Math.max(0,Number(e.target.value||0)); render(); });
+
+  // Per-user fields
+  bind("afPerUserPrice", e=>{ state.agentforce.perUserPrice=Math.max(0,Number(e.target.value||0)); render(); });
+
+  // Recommend & actions
+  bind("teamSize", e=>{ state.signals.teamSize=Number(e.target.value||0); });
+  bind("quotingComplexity", e=>{ state.signals.quotingComplexity=Number(e.target.value||0); });
+  bind("forecastingMaturity", e=>{ state.signals.forecastingMaturity=Number(e.target.value||0); });
+  bind("fieldSales", e=>{ state.signals.fieldSales=Number(e.target.value||0); });
+  bind("outboundCadence", e=>{ state.signals.outboundCadence=Number(e.target.value||0); });
+  bind("needIntegrationsAPI", e=>{ state.signals.needIntegrationsAPI=e.target.checked; }, "change");
+  bind("aiPriority", e=>{ state.signals.aiPriority=Number(e.target.value||0); });
+  bind("budgetSensitivity", e=>{ state.signals.budgetSensitivity=Number(e.target.value||0); });
+  document.getElementById("recommendBtn").addEventListener("click", recommend);
+  document.getElementById("copyBtn").addEventListener("click", copySummary);
+  document.getElementById("pdfBtn").addEventListener("click", exportPDF);
 }
+
 document.addEventListener("DOMContentLoaded", ()=>{ initBindings(); render(); });
 </script>
 </body>
