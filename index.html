@@ -1,600 +1,502 @@
-// Salesforce Sales Cloud Pricing Calculator — CRM Hacker
-// Last updated: 2025-08-15
-// Built for: crmhacker.com
-// Notes:
-// - Uses TailwindCSS + shadcn/ui + lucide-react + recharts.
-// - Drop this file into a Next.js/React app and install deps below.
-// - Deps to install:
-//   npm i recharts lucide-react
-//   npx shadcn@latest add card button input label select switch badge slider separator textarea
-// - Tailwind brand accent used here = emerald. Tweak classes or set CSS variables to match your palette.
-// - Pricing data is sourced from Salesforce public pricing pages and meant for estimation only. Always validate with an AE.
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>CRM Hacker — Salesforce Pricing Estimator</title>
+<meta name="description" content="Salesforce Sales Cloud pricing estimator with Agentforce inputs, recommendations, PDF export, and CRM Hacker branding." />
+<!-- Chart.js for the pie chart -->
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<!-- PDF generation (client-side) -->
+<script src="https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/jspdf@2.5.1/dist/jspdf.umd.min.js"></script>
+<style>
+/* CRM Hacker theme (emerald accent) */
+:root {
+  --emerald: #10b981;
+  --emerald-50: #ecfdf5;
+  --emerald-100: #d1fae5;
+  --ink: #0f172a;
+  --muted: #64748b;
+  --bg: #ffffff;
+  --card: #ffffff;
+  --border: #e5e7eb;
+}
+* { box-sizing: border-box; }
+body { margin:0; background:var(--bg); color:var(--ink);
+  font:16px/1.5 ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Inter, Arial, sans-serif; }
+.container { max-width:1120px; margin:0 auto; padding:16px; }
+.header { padding-top:24px; padding-bottom:8px; }
+.brand { display:flex; align-items:center; gap:10px; }
+.brand-dot { width:14px; height:14px; background:var(--emerald); border-radius:50%; box-shadow:0 0 0 4px var(--emerald-100); }
+.tagline { margin:6px 0 0; color:var(--muted); font-size:12px; }
+.grid { display:grid; grid-template-columns: repeat(6, 1fr); gap:16px; }
+.span-2 { grid-column: span 2; }
+.span-3 { grid-column: span 4; }
+@media (max-width:980px){ .grid{grid-template-columns:1fr;} .span-2,.span-3{grid-column:span 1;} }
+.grid-2 { display:grid; grid-template-columns: repeat(2, 1fr); gap:12px; }
+.grid-3 { display:grid; grid-template-columns: repeat(3, 1fr); gap:12px; }
+.grid-4 { display:grid; grid-template-columns: repeat(4, 1fr); gap:12px; }
+@media (max-width:840px){ .grid-3{grid-template-columns:1fr;} .grid-4{grid-template-columns:1fr 1fr;} }
+.card { background:var(--card); border:1px solid var(--border); border-radius:14px; padding:16px; box-shadow:0 1px 0 rgba(15,23,42,0.03); }
+.card.highlight { border:2px solid var(--emerald-100); }
+.badge { font-size:12px; padding:4px 8px; background:var(--emerald-50); border:1px solid var(--emerald-100); color:var(--ink); border-radius:999px; }
+.row { display:flex; align-items:center; gap:10px; }
+.space-between { justify-content: space-between; }
+.right { margin-left:auto; }
+.field { display:flex; flex-direction:column; gap:6px; }
+label { font-size:12px; color:var(--muted); }
+input, select {
+  width:100%; padding:10px 12px; border:1px solid var(--border); border-radius:10px; outline:none;
+}
+input:focus, select:focus { border-color:var(--emerald); box-shadow:0 0 0 3px var(--emerald-100); }
+.addon { display:flex; align-items:center; justify-content:space-between; gap:12px; border:1px solid var(--border); border-radius:12px; padding:12px; }
+.addon-title { font-weight:600; }
+.addon-sub { font-size:12px; color:var(--muted); }
+.pill { display:inline-block; margin-top:6px; font-size:12px; padding:4px 8px; background:var(--emerald-50); color:#065f46; border-radius:999px; }
+.switch { position:relative; display:inline-block; width:42px; height:24px; }
+.switch input { display:none; }
+.switch span { position:absolute; cursor:pointer; inset:0; background:#e5e7eb; border-radius:999px; transition:all .2s; }
+.switch span:before { content:''; position:absolute; width:18px; height:18px; left:3px; top:3px; background:#fff; border-radius:50%; transition:all .2s; }
+.switch input:checked + span { background:var(--emerald); }
+.switch input:checked + span:before { transform:translateX(18px); }
+.btn { background:var(--emerald); color:white; border:none; border-radius:10px; padding:10px 14px; cursor:pointer; font-weight:600; }
+.btn:hover { filter: brightness(0.95); }
+.btn.ghost { background:#f1f5f9; color:#0f172a; }
+.btn.secondary { background:#0ea5e9; color:white; }
+.muted { color:var(--muted); }
+.small { font-size:12px; }
+.bold { font-weight:600; }
+.big { font-size:22px; font-weight:700; }
+.notice { background:var(--emerald-50); border:1px solid var(--emerald-100); padding:10px; border-radius:10px; margin-bottom:8px; }
+.total { padding:2px 0; }
+hr { border:none; border-top:1px solid var(--border); margin:14px 0; }
+.list { margin:0; padding-left:18px; }
+.footer { padding-top:4px; padding-bottom:20px; color:var(--muted); }
+#resultsCard.exporting { box-shadow:none; }
+</style>
+</head>
+<body>
+  <header class="container header">
+    <div class="brand">
+      <div class="brand-dot"></div>
+      <h1>Salesforce Sales Cloud Pricing Estimator</h1>
+    </div>
+    <p class="tagline">CRM Hacker • Estimates only • Billed annually by Salesforce • Excludes taxes/discounts</p>
+  </header>
 
-import React, { useMemo, useState } from "react";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { Switch } from "@/components/ui/switch";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Badge } from "@/components/ui/badge";
-import { Separator } from "@/components/ui/separator";
-import { Slider } from "@/components/ui/slider";
-import { Info, Wand2, DollarSign, Copy, LineChart, ShieldCheck, Mail, DownloadCloud } from "lucide-react";
-import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip } from "recharts";
+  <main class="container grid">
+    <!-- Lead / Personalization -->
+    <section class="card span-3">
+      <h2>Personalize your estimate</h2>
+      <div class="grid grid-4">
+        <div class="field"><label for="firstName">First name</label><input id="firstName" placeholder="Jane" /></div>
+        <div class="field"><label for="lastName">Last name</label><input id="lastName" placeholder="Doe" /></div>
+        <div class="field"><label for="company">Company</label><input id="company" placeholder="Acme, Inc." /></div>
+        <div class="field"><label for="email">Email</label><input id="email" type="email" placeholder="you@company.com" /></div>
+      </div>
+      <p class="muted small">We’ll use these to personalize your on-screen results and gate the PDF export.</p>
+    </section>
 
-// -------------------------------
-// Pricing Catalog (USD) — editable
-// -------------------------------
+    <!-- Core configuration -->
+    <section class="card span-3" id="configCard">
+      <div class="row space-between">
+        <h2>Core configuration</h2>
+        <span class="badge">v2025.08</span>
+      </div>
+
+      <div class="grid grid-3">
+        <div class="field">
+          <label for="users">Users</label>
+          <input id="users" type="number" min="1" value="15" />
+        </div>
+        <div class="field">
+          <label for="edition">Edition</label>
+          <select id="edition">
+            <option value="starter">Starter Suite — $25</option>
+            <option value="pro">Pro Suite — $100</option>
+            <option value="enterprise" selected>Enterprise — $175</option>
+            <option value="unlimited">Unlimited — $350</option>
+            <option value="agentforce1">Agentforce 1 Sales — $550</option>
+          </select>
+        </div>
+        <div class="field">
+          <label for="successPlan">Success Plan</label>
+          <select id="successPlan">
+            <option value="standard" selected>Standard (included)</option>
+            <option value="premier">Premier (+30%)</option>
+            <option value="signature">Signature (contact sales)</option>
+          </select>
+        </div>
+      </div>
+
+      <hr/>
+
+      <!-- Implementation moved here -->
+      <div class="grid grid-3">
+        <div class="field">
+          <label for="impl">Implementation package</label>
+          <select id="impl">
+            <option value="none">No Implementation Package</option>
+            <option value="basic">Quick Start — $10,000</option>
+            <option value="standard" selected>Standard — $25,000</option>
+            <option value="advanced">Advanced — $50,000</option>
+          </select>
+          <div class="muted small">One-time CRM Hacker implementation estimate.</div>
+        </div>
+      </div>
+
+      <hr/>
+
+      <!-- Add-ons -->
+      <h3>Add-ons</h3>
+      <div class="grid grid-2">
+        <div class="addon">
+          <div><div class="addon-title">Sales Engagement</div><div class="addon-sub">Cadences, dialer & automation</div><div class="pill">$50/user/mo</div></div>
+          <label class="switch"><input id="a_salesEngagement" type="checkbox" checked><span></span></label>
+        </div>
+        <div class="addon">
+          <div><div class="addon-title">Einstein Conversation Insights</div><div class="addon-sub">Call recording analysis</div><div class="pill">$50/user/mo</div></div>
+          <label class="switch"><input id="a_conversationIntelligence" type="checkbox"><span></span></label>
+        </div>
+        <div class="addon">
+          <div><div class="addon-title">Revenue Intelligence</div><div class="addon-sub">Advanced forecasting & pipeline</div><div class="pill">$220/user/mo</div></div>
+          <label class="switch"><input id="a_revenueIntelligence" type="checkbox" checked><span></span></label>
+        </div>
+        <div class="addon">
+          <div><div class="addon-title">Revenue Cloud (CPQ/Billing)</div><div class="addon-sub">Configure-Price-Quote & Billing</div><div class="pill">$200/user/mo</div></div>
+          <label class="switch"><input id="a_revenueCloud" type="checkbox"><span></span></label>
+        </div>
+        <div class="addon">
+          <div><div class="addon-title">Salesforce Maps</div><div class="addon-sub">Field routes & territory mapping</div><div class="pill">$75/user/mo</div></div>
+          <label class="switch"><input id="a_maps" type="checkbox"><span></span></label>
+        </div>
+        <div class="addon">
+          <div><div class="addon-title">Sales Programs</div><div class="addon-sub">Enablement in the flow of work</div><div class="pill">$100/user/mo</div></div>
+          <label class="switch"><input id="a_salesPrograms" type="checkbox"><span></span></label>
+        </div>
+        <div class="addon">
+          <div><div class="addon-title">Sales Emails & Alerts</div><div class="addon-sub">Email sends & notifications</div><div class="pill">$50/user/mo</div></div>
+          <label class="switch"><input id="a_emailsAlerts" type="checkbox"><span></span></label>
+        </div>
+        <div class="addon" id="proApiRow" style="display:none;">
+          <div><div class="addon-title">Web Services API (Pro Suite)</div><div class="addon-sub">Enable integrations on Pro</div><div class="pill">$25/user/mo</div></div>
+          <label class="switch"><input id="a_apiAddOn" type="checkbox"><span></span></label>
+        </div>
+        <div class="card col-2">
+          <div class="grid grid-2">
+            <div class="field"><label for="prmLogins">Partner logins (PRM)</label><input id="prmLogins" type="number" min="0" value="0" /></div>
+            <div class="muted">PRM: $10 per partner login/month.</div>
+          </div>
+        </div>
+      </div>
+
+      <hr/>
+
+      <!-- Agentforce (AI) section -->
+      <h3>Agentforce (AI) add-ons</h3>
+      <p class="muted small">If you’re not selecting the “Agentforce 1 Sales” edition, you can include AI estimates here.</p>
+      <div class="grid grid-3">
+        <div class="field row">
+          <label for="enableAgentforce">Include Agentforce add-on (estimate)</label>
+          <label class="switch"><input id="enableAgentforce" type="checkbox"><span></span></label>
+        </div>
+        <div class="field">
+          <label for="agentforcePerUser">Agentforce per-user / month (USD)</label>
+          <input id="agentforcePerUser" type="number" min="0" step="1" value="0" />
+        </div>
+        <div class="field">
+          <label for="agentforceOrg">Agentforce org-wide / month (USD)</label>
+          <input id="agentforceOrg" type="number" min="0" step="1" value="0" />
+        </div>
+      </div>
+    </section>
+
+    <!-- Recommend -->
+    <section class="card span-3">
+      <h2>Let us recommend a setup</h2>
+      <div class="grid grid-3">
+        <div class="field"><label for="teamSize">Team size</label><input id="teamSize" type="number" min="1" value="15" /></div>
+        <div class="field"><label for="quotingComplexity">Quoting complexity (0 simple → 2 complex)</label><input id="quotingComplexity" type="number" min="0" max="2" value="2" /></div>
+        <div class="field"><label for="forecastingMaturity">Forecasting maturity (0 basic → 2 advanced)</label><input id="forecastingMaturity" type="number" min="0" max="2" value="1" /></div>
+        <div class="field"><label for="fieldSales">Field sales intensity (0 none → 2 heavy)</label><input id="fieldSales" type="number" min="0" max="2" value="0" /></div>
+        <div class="field"><label for="outboundCadence">Outbound cadences (0 none → 2 with call reviews)</label><input id="outboundCadence" type="number" min="0" max="2" value="1" /></div>
+        <div class="field row">
+          <label for="needIntegrationsAPI">Integrations/API needed</label>
+          <label class="switch"><input id="needIntegrationsAPI" type="checkbox" checked><span></span></label>
+        </div>
+        <div class="field"><label for="aiPriority">AI priority (0 low → 2 high)</label><input id="aiPriority" type="number" min="0" max="2" value="1" /></div>
+        <div class="field"><label for="budgetSensitivity">Budget sensitivity (0 high budget → 2 cost sensitive)</label><input id="budgetSensitivity" type="number" min="0" max="2" value="1" /></div>
+      </div>
+      <div class="row">
+        <button id="recommendBtn" class="btn">Recommend setup</button>
+        <button id="copyBtn" class="btn ghost">Copy summary</button>
+        <button id="pdfBtn" class="btn secondary">Get PDF</button>
+      </div>
+      <p class="muted small">Recommendations use simple heuristics and public list prices. Final pricing varies by term, volume, promos, and region.</p>
+    </section>
+
+    <!-- Results -->
+    <aside class="span-2">
+      <section class="card highlight" id="resultsCard">
+        <h2>Estimated cost</h2>
+        <div class="notice" id="personalizedLine">Hi there, here’s a ballpark for your company.</div>
+        <div class="grid grid-2 small">
+          <div><div class="muted">Edition</div><div id="outEdition" class="bold"></div></div>
+          <div><div class="muted">Users</div><div id="outUsers" class="bold">15</div></div>
+          <div><div class="muted">Licenses / mo</div><div id="outLicenses" class="bold">$0</div></div>
+          <div><div class="muted">Add-ons / mo</div><div id="outAddons" class="bold">$0</div></div>
+          <div><div class="muted">Success Plan / mo</div><div id="outSuccess" class="bold">$0</div></div>
+          <div><div class="muted">One-time (impl.)</div><div id="outOneTime" class="bold">$0</div></div>
+        </div>
+        <hr/>
+        <div class="row space-between total"><div class="muted">Monthly total</div><div id="outMonthly" class="big">$0</div></div>
+        <div class="row space-between total"><div class="muted">Annual total</div><div id="outAnnual" class="big">$0</div></div>
+        <!-- Smaller chart -->
+        <div style="height:140px"><canvas id="breakdownChart"></canvas></div>
+        <p class="muted small">* List prices in USD. Salesforce typically bills annually. Taxes, promos, multi-year terms, and AE-negotiated discounts are not included.</p>
+      </section>
+
+      <section class="card">
+        <h2>Pricing sources</h2>
+        <ul class="list small">
+          <li>Sales Cloud editions: Starter, Pro, Enterprise, Unlimited, Agentforce 1 Sales</li>
+          <li>Add-ons: Sales Engagement, Conversation Insights, Revenue Intelligence, Revenue Cloud, Maps, Sales Programs, PRM, Pro API add-on</li>
+          <li>Agentforce inputs are estimates so you can include AI spend if not on Agentforce 1 Sales.</li>
+          <li>Premier Success Plan: +30% of net license (Unlimited includes Premier)</li>
+        </ul>
+      </section>
+    </aside>
+  </main>
+
+  <footer class="container footer small">
+    <div>© CRM Hacker — Estimates only.</div>
+    <div class="right"><a href="https://crmhacker.com" target="_blank" rel="noopener">crmhacker.com</a></div>
+  </footer>
+
+<script>
+/*** CONFIG: set this to your Web-to-Lead / webhook to capture the form when PDF is requested ***/
+const FORM_ENDPOINT = null; // e.g. "https://hooks.zapier.com/..." or your Salesforce Web-to-Lead endpoint
+
+/*** PRICING ***/
 const PRICING = {
   editions: {
-    starter: { key: "starter", name: "Starter Suite", price: 25, notes: "Billed annually; up to 10 users is common but confirm.", per: "user" },
-    pro: { key: "pro", name: "Pro Suite", price: 100, notes: "API not included by default.", per: "user" },
-    enterprise: { key: "enterprise", name: "Enterprise", price: 175, per: "user" },
-    unlimited: { key: "unlimited", name: "Unlimited", price: 350, notes: "Premier Success bundled.", per: "user" },
-    agentforce1: { key: "agentforce1", name: "Agentforce 1 Sales", price: 550, notes: "Everything in Unlimited + full AI suite + credits.", per: "user" },
+    starter: { key:"starter", name:"Starter Suite", price:25, per:"user" },
+    pro: { key:"pro", name:"Pro Suite", price:100, per:"user" },
+    enterprise: { key:"enterprise", name:"Enterprise", price:175, per:"user" },
+    unlimited: { key:"unlimited", name:"Unlimited", price:350, per:"user" },
+    agentforce1: { key:"agentforce1", name:"Agentforce 1 Sales", price:550, per:"user" }
   },
   addons: {
-    apiAddOn: { key: "apiAddOn", name: "Web Services API (Pro Suite)", price: 25, per: "user", requiresEdition: ["pro"], hint: "Needed for integrations on Pro Suite." },
-    salesEngagement: { key: "salesEngagement", name: "Sales Engagement", price: 50, per: "user", hint: "Cadences, dialer, automations (starts at $50)." },
-    conversationIntelligence: { key: "conversationIntelligence", name: "Einstein Conversation Insights", price: 50, per: "user" },
-    revenueIntelligence: { key: "revenueIntelligence", name: "Revenue Intelligence", price: 220, per: "user", hint: "Advanced forecasting + pipeline analytics." },
-    revenueCloud: { key: "revenueCloud", name: "Revenue Cloud (CPQ/Billing)", price: 200, per: "user", hint: "Configure-Price-Quote & Billing." },
-    maps: { key: "maps", name: "Salesforce Maps", price: 75, per: "user" },
-    salesPrograms: { key: "salesPrograms", name: "Sales Programs", price: 100, per: "user" },
-    emailsAlerts: { key: "emailsAlerts", name: "Sales Emails & Alerts", price: 50, per: "user" },
-    prmLogins: { key: "prmLogins", name: "Partner Relationship Management", price: 10, per: "login", hint: "$10 per partner login/month" },
+    apiAddOn: { key:"apiAddOn", name:"Web Services API (Pro Suite)", price:25, per:"user" },
+    salesEngagement: { key:"salesEngagement", name:"Sales Engagement", price:50, per:"user" },
+    conversationIntelligence: { key:"conversationIntelligence", name:"Einstein Conversation Insights", price:50, per:"user" },
+    revenueIntelligence: { key:"revenueIntelligence", name:"Revenue Intelligence", price:220, per:"user" },
+    revenueCloud: { key:"revenueCloud", name:"Revenue Cloud (CPQ/Billing)", price:200, per:"user" },
+    maps: { key:"maps", name:"Salesforce Maps", price:75, per:"user" },
+    salesPrograms: { key:"salesPrograms", name:"Sales Programs", price:100, per:"user" },
+    emailsAlerts: { key:"emailsAlerts", name:"Sales Emails & Alerts", price:50, per:"user" },
+    prmLogins: { key:"prmLogins", name:"Partner Relationship Management", price:10, per:"login" }
   },
   successPlans: {
-    standard: { key: "standard", name: "Standard (included)", rate: 0, note: "Included with all editions." },
-    premier: { key: "premier", name: "Premier (+30% of license)", rate: 0.3, note: "30% of net license fees. Included with Unlimited." },
-    signature: { key: "signature", name: "Signature (contact sales)", rate: null },
+    standard: { key:"standard", name:"Standard (included)", rate:0 },
+    premier: { key:"premier", name:"Premier (+30% of license)", rate:0.3 },
+    signature: { key:"signature", name:"Signature (contact sales)", rate:null }
   },
   implementation: {
-    none: { key: "none", name: "No Implementation Package", fee: 0 },
-    basic: { key: "basic", name: "Quick Start (CRM Hacker)", fee: 10000 },
-    standard: { key: "standard", name: "Standard (CRM Hacker)", fee: 25000 },
-    advanced: { key: "advanced", name: "Advanced (CRM Hacker)", fee: 50000 },
+    none:{ key:"none", name:"No Implementation Package", fee:0 },
+    basic:{ key:"basic", name:"Quick Start (CRM Hacker)", fee:10000 },
+    standard:{ key:"standard", name:"Standard (CRM Hacker)", fee:25000 },
+    advanced:{ key:"advanced", name:"Advanced (CRM Hacker)", fee:50000 }
+  }
+};
+const $ = (id) => document.getElementById(id);
+
+/*** STATE ***/
+const state = {
+  firstName:"", lastName:"", company:"", email:"",
+  users:15, edition:"enterprise", successPlan:"standard", impl:"standard",
+  addons:{
+    apiAddOn:false, salesEngagement:true, conversationIntelligence:false,
+    revenueIntelligence:true, revenueCloud:false, maps:false,
+    salesPrograms:false, emailsAlerts:false, prmLogins:0
   },
+  agentforce:{ enabled:false, perUser:0, orgMonthly:0 },
+  signals:{
+    teamSize:15, quotingComplexity:2, forecastingMaturity:1, fieldSales:0,
+    outboundCadence:1, needIntegrationsAPI:true, aiPriority:1, budgetSensitivity:1
+  }
 };
 
-const BRAND = {
-  primary: "emerald", // Tailwind accent color; change to match brand
-  ring: "ring-emerald-400",
-  btn: "bg-emerald-600 hover:bg-emerald-700",
-  text: "text-emerald-600",
-};
+function currency(n){ return n.toLocaleString(undefined,{style:"currency",currency:"USD",maximumFractionDigits:0}); }
 
-// Utility
-const currency = (n: number) => n.toLocaleString(undefined, { style: "currency", currency: "USD", maximumFractionDigits: 0 });
+function compute(){
+  const editionPrice = PRICING.editions[state.edition].price;
+  const perUserAddOns = [];
+  if (state.addons.salesEngagement) perUserAddOns.push(PRICING.addons.salesEngagement);
+  if (state.addons.conversationIntelligence) perUserAddOns.push(PRICING.addons.conversationIntelligence);
+  if (state.addons.revenueIntelligence) perUserAddOns.push(PRICING.addons.revenueIntelligence);
+  if (state.addons.revenueCloud) perUserAddOns.push(PRICING.addons.revenueCloud);
+  if (state.addons.maps) perUserAddOns.push(PRICING.addons.maps);
+  if (state.addons.salesPrograms) perUserAddOns.push(PRICING.addons.salesPrograms);
+  if (state.addons.emailsAlerts) perUserAddOns.push(PRICING.addons.emailsAlerts);
+  if (state.edition === "pro" && state.addons.apiAddOn) perUserAddOns.push(PRICING.addons.apiAddOn);
 
-// Types
-type EditionKey = keyof typeof PRICING.editions;
-type SuccessKey = keyof typeof PRICING.successPlans;
-type ImplKey = keyof typeof PRICING.implementation;
+  const licenseMonthly = state.users * editionPrice;
+  let addonsMonthly = perUserAddOns.reduce((sum,a)=> sum + state.users*a.price, 0) + (state.addons.prmLogins||0) * PRICING.addons.prmLogins.price;
 
-export default function SalesforcePricingCalculator() {
-  // Identity for personalization
-  const [firstName, setFirstName] = useState("");
-  const [lastName, setLastName] = useState("");
-  const [company, setCompany] = useState("");
-  const [email, setEmail] = useState("");
-
-  // Core inputs
-  const [users, setUsers] = useState<number>(15);
-  const [edition, setEdition] = useState<EditionKey>("enterprise");
-  const [successPlan, setSuccessPlan] = useState<SuccessKey>("standard");
-  const [impl, setImpl] = useState<ImplKey>("standard");
-
-  // Add-on toggles
-  const [addons, setAddons] = useState<Record<string, any>>({
-    apiAddOn: false,
-    salesEngagement: true,
-    conversationIntelligence: false,
-    revenueIntelligence: true,
-    revenueCloud: false,
-    maps: false,
-    salesPrograms: false,
-    emailsAlerts: false,
-    prmLogins: 0,
-  });
-
-  // Needs-based signals (for Recommend)
-  const [signals, setSignals] = useState({
-    needIntegrationsAPI: true,
-    quotingComplexity: 2, // 0 = simple, 1 = moderate, 2 = complex
-    forecastingMaturity: 1, // 0 basic, 1 growing, 2 advanced
-    fieldSales: 0, // 0 no, 1 some, 2 heavy
-    outboundCadence: 1, // 0 no, 1 yes, 2 yes+call recording review
-    channelPartners: 0, // # of partner users/logins estimate bucket
-    aiPriority: 1, // 0 low, 1 medium, 2 high
-    budgetSensitivity: 1, // 0 high budget, 1 balanced, 2 cost-sensitive
-    teamSize: 15, // used to infer Starter/Pro viability
-  });
-
-  // Derived: Edition price
-  const editionPrice = PRICING.editions[edition].price;
-
-  // Compute totals
-  const compute = useMemo(() => {
-    const perUserAddOns = [
-      ...(addons.apiAddOn && edition === "pro" ? [PRICING.addons.apiAddOn] : []),
-      ...(addons.salesEngagement ? [PRICING.addons.salesEngagement] : []),
-      ...(addons.conversationIntelligence ? [PRICING.addons.conversationIntelligence] : []),
-      ...(addons.revenueIntelligence ? [PRICING.addons.revenueIntelligence] : []),
-      ...(addons.revenueCloud ? [PRICING.addons.revenueCloud] : []),
-      ...(addons.maps ? [PRICING.addons.maps] : []),
-      ...(addons.salesPrograms ? [PRICING.addons.salesPrograms] : []),
-      ...(addons.emailsAlerts ? [PRICING.addons.emailsAlerts] : []),
-    ];
-
-    const licenseMonthly = users * editionPrice;
-    const addonsMonthly = perUserAddOns.reduce((sum, a) => sum + users * a.price, 0) + (addons.prmLogins || 0) * PRICING.addons.prmLogins.price;
-
-    // Success plan calculation applies to license + add-ons (net license fees). Unlimited bundles Premier (0% extra)
-    const successCfg = PRICING.successPlans[successPlan];
-    const baseForSuccess = licenseMonthly + addonsMonthly;
-    const successMonthly = successCfg.rate ? baseForSuccess * successCfg.rate : 0;
-
-    // Unlimited always includes Premier; enforce if user chose premier with Unlimited
-    const effectiveSuccessMonthly = edition === "unlimited" && successPlan === "premier" ? 0 : successMonthly;
-
-    const monthlyTotal = licenseMonthly + addonsMonthly + effectiveSuccessMonthly;
-    const annualTotal = monthlyTotal * 12;
-    const oneTime = PRICING.implementation[impl].fee;
-
-    // Breakdown for chart
-    const breakdown = [
-      { name: "Licenses", value: Math.round(licenseMonthly) },
-      { name: "Add-ons", value: Math.round(addonsMonthly) },
-      { name: "Success Plan", value: Math.round(effectiveSuccessMonthly) },
-    ];
-
-    return {
-      licenseMonthly,
-      addonsMonthly,
-      successMonthly: effectiveSuccessMonthly,
-      monthlyTotal,
-      annualTotal,
-      oneTime,
-      breakdown,
-    };
-  }, [users, edition, editionPrice, addons, successPlan, impl]);
-
-  // Recommendation Engine — heuristic rules
-  function recommend() {
-    const s = { ...signals };
-    const next: any = { edition, addons: { ...addons } };
-
-    // Edition
-    if (s.aiPriority === 2 && s.teamSize >= 25) {
-      next.edition = "agentforce1";
-    } else if (s.quotingComplexity === 2 || s.needIntegrationsAPI) {
-      next.edition = "enterprise"; // Enterprise is the sweet spot for flexibility + API
-    } else if (s.teamSize <= 10 && s.budgetSensitivity === 2) {
-      next.edition = "starter";
-    } else if (s.teamSize <= 20 && s.budgetSensitivity >= 1) {
-      next.edition = "pro";
-    } else {
-      next.edition = "enterprise";
-    }
-
-    // Add-ons
-    next.addons.salesEngagement = s.outboundCadence >= 1;
-    next.addons.conversationIntelligence = s.outboundCadence === 2;
-    next.addons.revenueIntelligence = s.forecastingMaturity >= 1; // growing or advanced
-    next.addons.revenueCloud = s.quotingComplexity === 2;
-    next.addons.maps = s.fieldSales >= 1;
-    next.addons.salesPrograms = s.outboundCadence >= 1 && s.teamSize >= 15;
-    next.addons.emailsAlerts = false; // optional quick win
-
-    // API add-on for Pro Suite
-    next.addons.apiAddOn = next.edition === "pro" && s.needIntegrationsAPI;
-
-    setEdition(next.edition);
-    setAddons(next.addons);
-    setUsers(s.teamSize);
+  // Agentforce add if enabled and not Agentforce 1 edition
+  if (state.agentforce.enabled && state.edition !== "agentforce1"){
+    addonsMonthly += (state.agentforce.perUser * state.users) + state.agentforce.orgMonthly;
   }
 
-  function copySummaryToClipboard() {
-    const lines = [
-      `${firstName ? firstName + ", " : ""}Here’s your Salesforce estimate for ${company || "your company"}:`,
-      `Edition: ${PRICING.editions[edition].name} (${currency(PRICING.editions[edition].price)}/user/mo)`,
-      `Users: ${users}`,
-      `Add-ons: ${Object.entries(addons)
-        .filter(([k, v]) => (k === "prmLogins" ? v > 0 : !!v))
-        .map(([k, v]) => (k === "prmLogins" ? `${PRICING.addons.prmLogins.name} x ${v}` : PRICING.addons[k as keyof typeof PRICING.addons].name))
-        .join(", ") || "None"}`,
-      `Success Plan: ${PRICING.successPlans[successPlan].name}`,
-      `\nMonthly Total: ${currency(compute.monthlyTotal)} (Licenses ${currency(compute.licenseMonthly)} + Add-ons ${currency(compute.addonsMonthly)} + Success ${currency(compute.successMonthly)})`,
-      `Annual Total: ${currency(compute.annualTotal)}`,
-      `One-time (Implementation): ${currency(compute.oneTime)}`,
-      `\nDisclaimer: Estimates only. Salesforce bills annually; taxes/discounts not included.`,
-    ].join("\n");
+  let successRate = PRICING.successPlans[state.successPlan].rate || 0;
+  if (state.edition === "unlimited" && state.successPlan === "premier") successRate = 0; // Unlimited includes Premier
+  const successMonthly = (licenseMonthly + addonsMonthly) * successRate;
 
-    navigator.clipboard.writeText(lines).catch(() => {});
+  const monthlyTotal = licenseMonthly + addonsMonthly + successMonthly;
+  const annualTotal = monthlyTotal * 12;
+  const oneTime = PRICING.implementation[state.impl].fee;
+  return { licenseMonthly, addonsMonthly, successMonthly, monthlyTotal, annualTotal, oneTime };
+}
+
+function recommend(){
+  const s = state.signals;
+  let nextEdition = state.edition;
+  if (s.aiPriority === 2 && s.teamSize >= 25) nextEdition = "agentforce1";
+  else if (s.quotingComplexity === 2 || s.needIntegrationsAPI) nextEdition = "enterprise";
+  else if (s.teamSize <= 10 && s.budgetSensitivity === 2) nextEdition = "starter";
+  else if (s.teamSize <= 20 && s.budgetSensitivity >= 1) nextEdition = "pro";
+  else nextEdition = "enterprise";
+
+  state.edition = nextEdition; $("edition").value = nextEdition;
+  state.users = Number(s.teamSize); $("users").value = state.users;
+
+  state.addons.salesEngagement = s.outboundCadence >= 1; $("a_salesEngagement").checked = state.addons.salesEngagement;
+  state.addons.conversationIntelligence = s.outboundCadence === 2; $("a_conversationIntelligence").checked = state.addons.conversationIntelligence;
+  state.addons.revenueIntelligence = s.forecastingMaturity >= 1; $("a_revenueIntelligence").checked = state.addons.revenueIntelligence;
+  state.addons.revenueCloud = s.quotingComplexity === 2; $("a_revenueCloud").checked = state.addons.revenueCloud;
+  state.addons.maps = s.fieldSales >= 1; $("a_maps").checked = state.addons.maps;
+  state.addons.salesPrograms = s.outboundCadence >= 1 && s.teamSize >= 15; $("a_salesPrograms").checked = state.addons.salesPrograms;
+  state.addons.apiAddOn = (state.edition === "pro" && s.needIntegrationsAPI); $("a_apiAddOn").checked = state.addons.apiAddOn;
+  render();
+}
+
+let chart;
+function updateChart(out){
+  const ctx = $("breakdownChart").getContext("2d");
+  const data = {
+    labels:["Licenses","Add-ons","Success Plan"],
+    datasets:[{ data:[Math.round(out.licenseMonthly), Math.round(out.addonsMonthly), Math.round(out.successMonthly)],
+      backgroundColor:["#10b981","#0ea5e9","#a78bfa"] }]
+  };
+  const options = { plugins:{ legend:{ position:"bottom" } }, maintainAspectRatio:false };
+  if (chart){ chart.data = data; chart.update(); }
+  else { chart = new Chart(ctx, { type:"doughnut", data, options }); }
+}
+
+function render(){
+  $("proApiRow").style.display = state.edition === "pro" ? "flex" : "none";
+  const out = compute();
+  $("outEdition").textContent = PRICING.editions[state.edition].name;
+  $("outUsers").textContent = state.users;
+  $("outLicenses").textContent = currency(out.licenseMonthly);
+  $("outAddons").textContent = currency(out.addonsMonthly);
+  $("outSuccess").textContent = currency(out.successMonthly);
+  $("outOneTime").textContent = currency(out.oneTime);
+  $("outMonthly").textContent = currency(out.monthlyTotal);
+  $("outAnnual").textContent = currency(out.annualTotal);
+  const name = state.firstName ? `Hey ${state.firstName}` : "Hi there";
+  const org = state.company || "your company";
+  const email = state.email || "(add email)";
+  $("personalizedLine").textContent = `${name}, here’s a ballpark for ${org}. We’ll email you a copy at ${email} if you hit copy.`;
+  updateChart(out);
+}
+
+function copySummary(){
+  const out = compute();
+  const addonsList = Object.entries(state.addons)
+    .filter(([k,v]) => k !== "prmLogins" ? !!v : v > 0)
+    .map(([k,v]) => k === "prmLogins" ? `${PRICING.addons.prmLogins.name} x ${v}` : PRICING.addons[k].name)
+    .join(", ") || "None";
+  const aforce = (state.agentforce.enabled && state.edition !== "agentforce1")
+    ? `; Agentforce add-on included: ${currency(state.agentforce.perUser)}/user/mo + ${currency(state.agentforce.orgMonthly)}/org/mo` : "";
+  const lines = [
+    `${state.firstName ? state.firstName + "," : ""} Here’s your Salesforce estimate for ${state.company || "your company"}:`,
+    `Edition: ${PRICING.editions[state.edition].name} (${currency(PRICING.editions[state.edition].price)}/user/mo)`,
+    `Users: ${state.users}`,
+    `Add-ons: ${addonsList}${aforce}`,
+    `Success Plan: ${PRICING.successPlans[state.successPlan].name}`,
+    ``,
+    `Monthly Total: ${currency(out.monthlyTotal)} (Licenses ${currency(out.licenseMonthly)} + Add-ons ${currency(out.addonsMonthly)} + Success ${currency(out.successMonthly)})`,
+    `Annual Total: ${currency(out.annualTotal)}`,
+    `One-time (Implementation): ${currency(out.oneTime)}`,
+    ``,
+    `Disclaimer: Estimates only. Salesforce bills annually; taxes/discounts not included.`
+  ].join("\n");
+  navigator.clipboard.writeText(lines).catch(()=>{});
+}
+
+async function exportPDF(){
+  const required = ["firstName","lastName","company","email"];
+  for (const id of required){
+    const val = $(id).value?.trim();
+    if (!val){ alert("Please complete First name, Last name, Company, and Email to receive the PDF."); return; }
   }
-
-  // Colors for chart
-  const PIE_COLORS = ["#10b981", "#0ea5e9", "#a78bfa"]; // emerald / sky / violet
-
-  return (
-    <div className="mx-auto max-w-6xl p-4 sm:p-6 space-y-6">
-      <header className="flex flex-col gap-2">
-        <div className="flex items-center gap-2">
-          <LineChart className={`h-6 w-6 ${BRAND.text}`} />
-          <h1 className="text-2xl sm:text-3xl font-semibold tracking-tight">Salesforce Sales Cloud Pricing Estimator</h1>
-        </div>
-        <p className="text-sm text-muted-foreground">Branded for CRM Hacker • Estimates only • Billed annually by Salesforce • Excludes taxes/discounts</p>
-      </header>
-
-      {/* Identity */}
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2"><Mail className="h-5 w-5" /> Personalize your estimate</CardTitle>
-        </CardHeader>
-        <CardContent className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-          <div>
-            <Label>First name</Label>
-            <Input value={firstName} onChange={(e) => setFirstName(e.target.value)} placeholder="Jane" />
-          </div>
-          <div>
-            <Label>Last name</Label>
-            <Input value={lastName} onChange={(e) => setLastName(e.target.value)} placeholder="Doe" />
-          </div>
-          <div>
-            <Label>Company</Label>
-            <Input value={company} onChange={(e) => setCompany(e.target.value)} placeholder="Acme, Inc." />
-          </div>
-          <div>
-            <Label>Email</Label>
-            <Input type="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="you@company.com" />
-          </div>
-        </CardContent>
-      </Card>
-
-      {/* Configurator */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        {/* Left column: Core + Add-ons */}
-        <div className="space-y-6 lg:col-span-2">
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center justify-between">
-                <span>Core configuration</span>
-                <Badge variant="secondary" className="uppercase">v2025.08</Badge>
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-                <div>
-                  <Label>Users</Label>
-                  <Input type="number" min={1} value={users} onChange={(e) => setUsers(Math.max(1, Number(e.target.value)))} />
-                </div>
-                <div>
-                  <Label>Edition</Label>
-                  <Select value={edition} onValueChange={(v: EditionKey) => setEdition(v)}>
-                    <SelectTrigger>
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="starter">Starter Suite — $25</SelectItem>
-                      <SelectItem value="pro">Pro Suite — $100</SelectItem>
-                      <SelectItem value="enterprise">Enterprise — $175</SelectItem>
-                      <SelectItem value="unlimited">Unlimited — $350</SelectItem>
-                      <SelectItem value="agentforce1">Agentforce 1 Sales — $550</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-                <div>
-                  <Label>Success Plan</Label>
-                  <Select value={successPlan} onValueChange={(v: SuccessKey) => setSuccessPlan(v)}>
-                    <SelectTrigger>
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="standard">Standard (included)</SelectItem>
-                      <SelectItem value="premier">Premier (+30%)</SelectItem>
-                      <SelectItem value="signature">Signature (contact sales)</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-              </div>
-
-              <Separator />
-
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <AddonToggle
-                  title="Sales Engagement"
-                  subtitle="Cadences, dialer & automation"
-                  price="$50/user/mo"
-                  checked={addons.salesEngagement}
-                  onCheckedChange={(v) => setAddons({ ...addons, salesEngagement: v })}
-                />
-                <AddonToggle
-                  title="Einstein Conversation Insights"
-                  subtitle="Call recording analysis"
-                  price="$50/user/mo"
-                  checked={addons.conversationIntelligence}
-                  onCheckedChange={(v) => setAddons({ ...addons, conversationIntelligence: v })}
-                />
-                <AddonToggle
-                  title="Revenue Intelligence"
-                  subtitle="Advanced forecasting & pipeline"
-                  price="$220/user/mo"
-                  checked={addons.revenueIntelligence}
-                  onCheckedChange={(v) => setAddons({ ...addons, revenueIntelligence: v })}
-                />
-                <AddonToggle
-                  title="Revenue Cloud (CPQ/Billing)"
-                  subtitle="Configure-Price-Quote & Billing"
-                  price="$200/user/mo"
-                  checked={addons.revenueCloud}
-                  onCheckedChange={(v) => setAddons({ ...addons, revenueCloud: v })}
-                />
-                <AddonToggle
-                  title="Salesforce Maps"
-                  subtitle="Field routes & territory mapping"
-                  price="$75/user/mo"
-                  checked={addons.maps}
-                  onCheckedChange={(v) => setAddons({ ...addons, maps: v })}
-                />
-                <AddonToggle
-                  title="Sales Programs"
-                  subtitle="Enablement in the flow of work"
-                  price="$100/user/mo"
-                  checked={addons.salesPrograms}
-                  onCheckedChange={(v) => setAddons({ ...addons, salesPrograms: v })}
-                />
-                <AddonToggle
-                  title="Sales Emails & Alerts"
-                  subtitle="Email sends & notifications"
-                  price="$50/user/mo"
-                  checked={addons.emailsAlerts}
-                  onCheckedChange={(v) => setAddons({ ...addons, emailsAlerts: v })}
-                />
-                {edition === "pro" && (
-                  <AddonToggle
-                    title="Web Services API (Pro Suite)"
-                    subtitle="Enable integrations on Pro"
-                    price="$25/user/mo"
-                    checked={addons.apiAddOn}
-                    onCheckedChange={(v) => setAddons({ ...addons, apiAddOn: v })}
-                  />
-                )}
-
-                <Card className="col-span-1 md:col-span-2">
-                  <CardContent className="pt-4 grid grid-cols-1 sm:grid-cols-2 gap-4 items-end">
-                    <div>
-                      <Label>Partner logins (PRM)</Label>
-                      <Input type="number" min={0} value={addons.prmLogins}
-                        onChange={(e) => setAddons({ ...addons, prmLogins: Math.max(0, Number(e.target.value)) })} />
-                    </div>
-                    <div className="text-sm text-muted-foreground">
-                      $10 per partner login/month. Useful for channel programs.
-                    </div>
-                  </CardContent>
-                </Card>
-
-              </div>
-            </CardContent>
-          </Card>
-
-          {/* Needs signals + Recommend */}
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2"><Wand2 className="h-5 w-5" /> Let us recommend a setup</CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-5">
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <SignalSlider
-                  label="Team size"
-                  value={signals.teamSize}
-                  onChange={(v) => setSignals({ ...signals, teamSize: v })}
-                  min={1}
-                  max={500}
-                  step={1}
-                />
-                <SignalSlider
-                  label="Quoting complexity"
-                  hint="Simple → Complex"
-                  value={signals.quotingComplexity}
-                  onChange={(v) => setSignals({ ...signals, quotingComplexity: v })}
-                  min={0}
-                  max={2}
-                />
-                <SignalSlider
-                  label="Forecasting maturity"
-                  hint="Basic → Advanced"
-                  value={signals.forecastingMaturity}
-                  onChange={(v) => setSignals({ ...signals, forecastingMaturity: v })}
-                  min={0}
-                  max={2}
-                />
-                <SignalSlider
-                  label="Field sales intensity"
-                  hint="None → Heavy"
-                  value={signals.fieldSales}
-                  onChange={(v) => setSignals({ ...signals, fieldSales: v })}
-                  min={0}
-                  max={2}
-                />
-                <SignalSlider
-                  label="Outbound cadences"
-                  hint="None → With call reviews"
-                  value={signals.outboundCadence}
-                  onChange={(v) => setSignals({ ...signals, outboundCadence: v })}
-                  min={0}
-                  max={2}
-                />
-                <div className="flex items-center justify-between rounded-lg border p-3">
-                  <div>
-                    <div className="font-medium">Integrations/API needed</div>
-                    <div className="text-xs text-muted-foreground">Toggle if you plan to integrate many tools.</div>
-                  </div>
-                  <Switch checked={signals.needIntegrationsAPI} onCheckedChange={(v) => setSignals({ ...signals, needIntegrationsAPI: v })} />
-                </div>
-                <SignalSlider
-                  label="AI priority"
-                  hint="Low → High"
-                  value={signals.aiPriority}
-                  onChange={(v) => setSignals({ ...signals, aiPriority: v })}
-                  min={0}
-                  max={2}
-                />
-                <SignalSlider
-                  label="Budget sensitivity"
-                  hint="High budget → Cost sensitive"
-                  value={signals.budgetSensitivity}
-                  onChange={(v) => setSignals({ ...signals, budgetSensitivity: v })}
-                  min={0}
-                  max={2}
-                />
-              </div>
-
-              <div className="flex gap-3">
-                <Button className={BRAND.btn} onClick={recommend}><Wand2 className="h-4 w-4 mr-1" /> Recommend setup</Button>
-                <Button variant="secondary" onClick={copySummaryToClipboard}><Copy className="h-4 w-4 mr-1" /> Copy summary</Button>
-              </div>
-
-              <div className="text-xs text-muted-foreground flex items-start gap-2"><Info className="h-4 w-4 mt-0.5" /> Recommendations use simple heuristics and public list prices. Final pricing varies by term, volume, promos, and region.</div>
-            </CardContent>
-          </Card>
-        </div>
-
-        {/* Right column: Results */}
-        <div className="space-y-6">
-          <Card className="border-2 border-emerald-200">
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2"><DollarSign className="h-5 w-5" /> Estimated cost</CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="rounded-lg bg-emerald-50 p-3 text-sm">
-                {firstName ? (<span className="font-medium">Hey {firstName}</span>) : (<span className="font-medium">Hi there</span>)}{", "}
-                here’s a ballpark for {company || "your company"}. We’ll email you a copy at {email || "(add email)"} if you hit copy.
-              </div>
-
-              <div className="grid grid-cols-2 gap-4 text-sm">
-                <div className="space-y-1">
-                  <div className="text-muted-foreground">Edition</div>
-                  <div className="font-medium">{PRICING.editions[edition].name}</div>
-                </div>
-                <div className="space-y-1">
-                  <div className="text-muted-foreground">Users</div>
-                  <div className="font-medium">{users}</div>
-                </div>
-                <div className="space-y-1">
-                  <div className="text-muted-foreground">Licenses / mo</div>
-                  <div className="font-medium">{currency(compute.licenseMonthly)}</div>
-                </div>
-                <div className="space-y-1">
-                  <div className="text-muted-foreground">Add-ons / mo</div>
-                  <div className="font-medium">{currency(compute.addonsMonthly)}</div>
-                </div>
-                <div className="space-y-1">
-                  <div className="text-muted-foreground">Success Plan / mo</div>
-                  <div className="font-medium">{currency(compute.successMonthly)}</div>
-                </div>
-                <div className="space-y-1">
-                  <div className="text-muted-foreground">One-time (impl.)</div>
-                  <div className="font-medium">{currency(compute.oneTime)}</div>
-                </div>
-              </div>
-
-              <Separator />
-
-              <div className="flex items-center justify-between">
-                <div className="text-sm text-muted-foreground">Monthly total</div>
-                <div className="text-2xl font-semibold">{currency(compute.monthlyTotal)}</div>
-              </div>
-              <div className="flex items-center justify-between">
-                <div className="text-sm text-muted-foreground">Annual total</div>
-                <div className="text-xl font-semibold">{currency(compute.annualTotal)}</div>
-              </div>
-
-              <div className="h-56">
-                <ResponsiveContainer width="100%" height="100%">
-                  <PieChart>
-                    <Pie data={compute.breakdown} dataKey="value" nameKey="name" innerRadius={50} outerRadius={80} paddingAngle={3}>
-                      {compute.breakdown.map((_, i) => (
-                        <Cell key={i} fill={PIE_COLORS[i % PIE_COLORS.length]} />
-                      ))}
-                    </Pie>
-                    <Tooltip formatter={(v: any) => currency(Number(v))} />
-                  </PieChart>
-                </ResponsiveContainer>
-              </div>
-
-              <div className="text-xs text-muted-foreground">
-                * List prices in USD. Salesforce typically bills annually. Taxes, promos, multi-year terms, and AE-negotiated discounts are not included.
-              </div>
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2"><ShieldCheck className="h-5 w-5" /> Implementation package</CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-3">
-              <Select value={impl} onValueChange={(v: ImplKey) => setImpl(v)}>
-                <SelectTrigger>
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="none">No Implementation Package</SelectItem>
-                  <SelectItem value="basic">Quick Start — $10,000</SelectItem>
-                  <SelectItem value="standard">Standard — $25,000</SelectItem>
-                  <SelectItem value="advanced">Advanced — $50,000</SelectItem>
-                </SelectContent>
-              </Select>
-
-              <div className="text-xs text-muted-foreground">These one-time estimates are placeholders for CRM Hacker offers. Adjust to your SKU playbook.</div>
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardHeader>
-              <CardTitle>Pricing sources</CardTitle>
-            </CardHeader>
-            <CardContent className="text-sm text-muted-foreground space-y-2">
-              <ul className="list-disc ml-5 space-y-1">
-                <li>Sales Cloud editions & list prices (Starter, Pro, Enterprise, Unlimited, Agentforce 1 Sales)</li>
-                <li>Revenue Intelligence, Revenue Cloud, Sales Programs, PRM, API add-on, Maps, Sales Engagement, Conversation Insights</li>
-                <li>Premier Success Plan: +30% of net license (Unlimited includes Premier)</li>
-              </ul>
-              <div className="text-xs">Links are kept in your repo README so marketing can update values without code changes.</div>
-            </CardContent>
-          </Card>
-        </div>
-      </div>
-
-    </div>
-  );
+  // Optional: send lead to your endpoint
+  if (FORM_ENDPOINT){
+    try {
+      await fetch(FORM_ENDPOINT, {
+        method:"POST", headers:{ "Content-Type":"application/json" },
+        body: JSON.stringify({
+          firstName:$("firstName").value, lastName:$("lastName").value,
+          company:$("company").value, email:$("email").value,
+          users:state.users, edition:state.edition, successPlan:state.successPlan,
+          impl:state.impl, addons:state.addons, agentforce:state.agentforce, totals:compute()
+        })
+      });
+    } catch(e){ console.warn("Form endpoint error:", e); }
+  }
+  const { jsPDF } = window.jspdf;
+  const pdf = new jsPDF({ unit:"pt", format:"a4" });
+  pdf.setFont("helvetica","bold"); pdf.setFontSize(18);
+  pdf.text("CRM Hacker — Salesforce Pricing Estimate", 40, 40);
+  pdf.setFont("helvetica","normal"); pdf.setFontSize(11);
+  pdf.text(`Prepared for: ${$("firstName").value} ${$("lastName").value} — ${$("company").value}`, 40, 60);
+  pdf.text(`Email: ${$("email").value}`, 40, 76);
+  const card = document.getElementById("resultsCard");
+  card.classList.add("exporting");
+  const canvas = await html2canvas(card, { scale: 2, backgroundColor:"#ffffff" });
+  card.classList.remove("exporting");
+  const img = canvas.toDataURL("image/png");
+  const imgWidth = 515;
+  const imgHeight = canvas.height * (imgWidth / canvas.width);
+  pdf.addImage(img, "PNG", 40, 100, imgWidth, imgHeight);
+  pdf.save("CRM-Hacker-Salesforce-Pricing-Estimate.pdf");
 }
 
-function AddonToggle({ title, subtitle, price, checked, onCheckedChange }: { title: string; subtitle?: string; price?: string; checked: boolean; onCheckedChange: (v: boolean) => void; }) {
-  return (
-    <Card>
-      <CardContent className="pt-4 flex items-center justify-between gap-4">
-        <div>
-          <div className="font-medium">{title}</div>
-          <div className="text-xs text-muted-foreground">{subtitle}</div>
-          {price && <div className="text-xs mt-1"><span className="px-2 py-0.5 rounded bg-emerald-50 text-emerald-700">{price}</span></div>}
-        </div>
-        <Switch checked={checked} onCheckedChange={onCheckedChange} />
-      </CardContent>
-    </Card>
-  );
+function initBindings(){
+  ["firstName","lastName","company","email"].forEach(id => { $(id).addEventListener("input", e => { state[id]=e.target.value; render(); }); });
+  $("users").addEventListener("input", e => { state.users=Math.max(1, Number(e.target.value||1)); render(); });
+  $("edition").addEventListener("change", e => { state.edition=e.target.value; render(); });
+  $("successPlan").addEventListener("change", e => { state.successPlan=e.target.value; render(); });
+  $("impl").addEventListener("change", e => { state.impl=e.target.value; render(); });
+  ["salesEngagement","conversationIntelligence","revenueIntelligence","revenueCloud","maps","salesPrograms","emailsAlerts","apiAddOn"].forEach(key=>{
+    const el = $("a_"+key); if (el) el.addEventListener("change", e=>{ state.addons[key]=e.target.checked; render(); });
+  });
+  $("prmLogins").addEventListener("input", e=>{ state.addons.prmLogins=Math.max(0, Number(e.target.value||0)); render(); });
+  $("enableAgentforce").addEventListener("change", e=>{ state.agentforce.enabled=e.target.checked; render(); });
+  $("agentforcePerUser").addEventListener("input", e=>{ state.agentforce.perUser=Math.max(0, Number(e.target.value||0)); render(); });
+  $("agentforceOrg").addEventListener("input", e=>{ state.agentforce.orgMonthly=Math.max(0, Number(e.target.value||0)); render(); });
+  ["teamSize","quotingComplexity","forecastingMaturity","fieldSales","outboundCadence","aiPriority","budgetSensitivity"].forEach(id=>{
+    $(id).addEventListener("input", e=>{ state.signals[id]=Number(e.target.value||0); });
+  });
+  $("needIntegrationsAPI").addEventListener("change", e=>{ state.signals.needIntegrationsAPI=e.target.checked; });
+  $("recommendBtn").addEventListener("click", recommend);
+  $("copyBtn").addEventListener("click", copySummary);
+  $("pdfBtn").addEventListener("click", exportPDF);
 }
-
-function SignalSlider({ label, hint, value, onChange, min, max, step = 1 }: { label: string; hint?: string; value: number; onChange: (v: number) => void; min: number; max: number; step?: number; }) {
-  return (
-    <div className="rounded-lg border p-3">
-      <div className="flex items-center justify-between mb-2">
-        <div className="font-medium">{label}</div>
-        <Badge variant="secondary">{value}</Badge>
-      </div>
-      {hint && <div className="text-xs text-muted-foreground mb-2">{hint}</div>}
-      <Slider value={[value]} min={min} max={max} step={step} onValueChange={(v) => onChange(v[0])} />
-    </div>
-  );
-}
+document.addEventListener("DOMContentLoaded", ()=>{ initBindings(); render(); });
+</script>
+</body>
+</html>
