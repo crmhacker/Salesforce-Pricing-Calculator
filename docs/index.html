@@ -1,14 +1,80 @@
-
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>CRM Hacker — Salesforce Pricing Estimator</title>
-  <link rel="stylesheet" href="./assets/style.css" />
-  <!-- Chart.js for the pie chart -->
-  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-  <meta name="description" content="Salesforce Sales Cloud pricing estimator by CRM Hacker. Estimate monthly, annual, and one-time implementation fees with recommendations." />
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>CRM Hacker — Salesforce Pricing Estimator</title>
+<meta name="description" content="Salesforce Sales Cloud pricing estimator with Agentforce inputs, recommendations, PDF export, and CRM Hacker branding." />
+<!-- Chart.js for the pie chart -->
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<!-- PDF generation (client-side) -->
+<script src="https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/jspdf@2.5.1/dist/jspdf.umd.min.js"></script>
+<style>
+/* CRM Hacker theme (emerald accent) */
+:root {
+  --emerald: #10b981;
+  --emerald-50: #ecfdf5;
+  --emerald-100: #d1fae5;
+  --ink: #0f172a;
+  --muted: #64748b;
+  --bg: #ffffff;
+  --card: #ffffff;
+  --border: #e5e7eb;
+}
+* { box-sizing: border-box; }
+body { margin:0; background:var(--bg); color:var(--ink);
+  font:16px/1.5 ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Inter, Arial, sans-serif; }
+.container { max-width:1120px; margin:0 auto; padding:16px; }
+.header { padding-top:24px; padding-bottom:8px; }
+.brand { display:flex; align-items:center; gap:10px; }
+.brand-dot { width:14px; height:14px; background:var(--emerald); border-radius:50%; box-shadow:0 0 0 4px var(--emerald-100); }
+.tagline { margin:6px 0 0; color:var(--muted); font-size:12px; }
+.grid { display:grid; grid-template-columns: repeat(6, 1fr); gap:16px; }
+.span-2 { grid-column: span 2; }
+.span-3 { grid-column: span 4; }
+@media (max-width:980px){ .grid{grid-template-columns:1fr;} .span-2,.span-3{grid-column:span 1;} }
+.grid-2 { display:grid; grid-template-columns: repeat(2, 1fr); gap:12px; }
+.grid-3 { display:grid; grid-template-columns: repeat(3, 1fr); gap:12px; }
+.grid-4 { display:grid; grid-template-columns: repeat(4, 1fr); gap:12px; }
+@media (max-width:840px){ .grid-3{grid-template-columns:1fr;} .grid-4{grid-template-columns:1fr 1fr;} }
+.card { background:var(--card); border:1px solid var(--border); border-radius:14px; padding:16px; box-shadow:0 1px 0 rgba(15,23,42,0.03); }
+.card.highlight { border:2px solid var(--emerald-100); }
+.badge { font-size:12px; padding:4px 8px; background:var(--emerald-50); border:1px solid var(--emerald-100); color:var(--ink); border-radius:999px; }
+.row { display:flex; align-items:center; gap:10px; }
+.space-between { justify-content: space-between; }
+.right { margin-left:auto; }
+.field { display:flex; flex-direction:column; gap:6px; }
+label { font-size:12px; color:var(--muted); }
+input, select {
+  width:100%; padding:10px 12px; border:1px solid var(--border); border-radius:10px; outline:none;
+}
+input:focus, select:focus { border-color:var(--emerald); box-shadow:0 0 0 3px var(--emerald-100); }
+.addon { display:flex; align-items:center; justify-content:space-between; gap:12px; border:1px solid var(--border); border-radius:12px; padding:12px; }
+.addon-title { font-weight:600; }
+.addon-sub { font-size:12px; color:var(--muted); }
+.pill { display:inline-block; margin-top:6px; font-size:12px; padding:4px 8px; background:var(--emerald-50); color:#065f46; border-radius:999px; }
+.switch { position:relative; display:inline-block; width:42px; height:24px; }
+.switch input { display:none; }
+.switch span { position:absolute; cursor:pointer; inset:0; background:#e5e7eb; border-radius:999px; transition:all .2s; }
+.switch span:before { content:''; position:absolute; width:18px; height:18px; left:3px; top:3px; background:#fff; border-radius:50%; transition:all .2s; }
+.switch input:checked + span { background:var(--emerald); }
+.switch input:checked + span:before { transform:translateX(18px); }
+.btn { background:var(--emerald); color:white; border:none; border-radius:10px; padding:10px 14px; cursor:pointer; font-weight:600; }
+.btn:hover { filter: brightness(0.95); }
+.btn.ghost { background:#f1f5f9; color:#0f172a; }
+.btn.secondary { background:#0ea5e9; color:white; }
+.muted { color:var(--muted); }
+.small { font-size:12px; }
+.bold { font-weight:600; }
+.big { font-size:22px; font-weight:700; }
+.notice { background:var(--emerald-50); border:1px solid var(--emerald-100); padding:10px; border-radius:10px; margin-bottom:8px; }
+.total { padding:2px 0; }
+hr { border:none; border-top:1px solid var(--border); margin:14px 0; }
+.list { margin:0; padding-left:18px; }
+.footer { padding-top:4px; padding-bottom:20px; color:var(--muted); }
+#resultsCard.exporting { box-shadow:none; }
+</style>
 </head>
 <body>
   <header class="container header">
@@ -24,27 +90,16 @@
     <section class="card span-3">
       <h2>Personalize your estimate</h2>
       <div class="grid grid-4">
-        <div class="field">
-          <label for="firstName">First name</label>
-          <input id="firstName" placeholder="Jane" />
-        </div>
-        <div class="field">
-          <label for="lastName">Last name</label>
-          <input id="lastName" placeholder="Doe" />
-        </div>
-        <div class="field">
-          <label for="company">Company</label>
-          <input id="company" placeholder="Acme, Inc." />
-        </div>
-        <div class="field">
-          <label for="email">Email</label>
-          <input id="email" type="email" placeholder="you@company.com" />
-        </div>
+        <div class="field"><label for="firstName">First name</label><input id="firstName" placeholder="Jane" /></div>
+        <div class="field"><label for="lastName">Last name</label><input id="lastName" placeholder="Doe" /></div>
+        <div class="field"><label for="company">Company</label><input id="company" placeholder="Acme, Inc." /></div>
+        <div class="field"><label for="email">Email</label><input id="email" type="email" placeholder="you@company.com" /></div>
       </div>
+      <p class="muted small">We’ll use these to personalize your on-screen results and gate the PDF export.</p>
     </section>
 
     <!-- Core configuration -->
-    <section class="card span-3">
+    <section class="card span-3" id="configCard">
       <div class="row space-between">
         <h2>Core configuration</h2>
         <span class="badge">v2025.08</span>
@@ -77,87 +132,82 @@
 
       <hr/>
 
+      <!-- Implementation moved here -->
+      <div class="grid grid-3">
+        <div class="field">
+          <label for="impl">Implementation package</label>
+          <select id="impl">
+            <option value="none">No Implementation Package</option>
+            <option value="basic">Quick Start — $10,000</option>
+            <option value="standard" selected>Standard — $25,000</option>
+            <option value="advanced">Advanced — $50,000</option>
+          </select>
+          <div class="muted small">One-time CRM Hacker implementation estimate.</div>
+        </div>
+      </div>
+
+      <hr/>
+
+      <!-- Add-ons -->
+      <h3>Add-ons</h3>
       <div class="grid grid-2">
         <div class="addon">
-          <div>
-            <div class="addon-title">Sales Engagement</div>
-            <div class="addon-sub">Cadences, dialer & automation</div>
-            <div class="pill">$50/user/mo</div>
-          </div>
+          <div><div class="addon-title">Sales Engagement</div><div class="addon-sub">Cadences, dialer & automation</div><div class="pill">$50/user/mo</div></div>
           <label class="switch"><input id="a_salesEngagement" type="checkbox" checked><span></span></label>
         </div>
-
         <div class="addon">
-          <div>
-            <div class="addon-title">Einstein Conversation Insights</div>
-            <div class="addon-sub">Call recording analysis</div>
-            <div class="pill">$50/user/mo</div>
-          </div>
+          <div><div class="addon-title">Einstein Conversation Insights</div><div class="addon-sub">Call recording analysis</div><div class="pill">$50/user/mo</div></div>
           <label class="switch"><input id="a_conversationIntelligence" type="checkbox"><span></span></label>
         </div>
-
         <div class="addon">
-          <div>
-            <div class="addon-title">Revenue Intelligence</div>
-            <div class="addon-sub">Advanced forecasting & pipeline</div>
-            <div class="pill">$220/user/mo</div>
-          </div>
+          <div><div class="addon-title">Revenue Intelligence</div><div class="addon-sub">Advanced forecasting & pipeline</div><div class="pill">$220/user/mo</div></div>
           <label class="switch"><input id="a_revenueIntelligence" type="checkbox" checked><span></span></label>
         </div>
-
         <div class="addon">
-          <div>
-            <div class="addon-title">Revenue Cloud (CPQ/Billing)</div>
-            <div class="addon-sub">Configure-Price-Quote & Billing</div>
-            <div class="pill">$200/user/mo</div>
-          </div>
+          <div><div class="addon-title">Revenue Cloud (CPQ/Billing)</div><div class="addon-sub">Configure-Price-Quote & Billing</div><div class="pill">$200/user/mo</div></div>
           <label class="switch"><input id="a_revenueCloud" type="checkbox"><span></span></label>
         </div>
-
         <div class="addon">
-          <div>
-            <div class="addon-title">Salesforce Maps</div>
-            <div class="addon-sub">Field routes & territory mapping</div>
-            <div class="pill">$75/user/mo</div>
-          </div>
+          <div><div class="addon-title">Salesforce Maps</div><div class="addon-sub">Field routes & territory mapping</div><div class="pill">$75/user/mo</div></div>
           <label class="switch"><input id="a_maps" type="checkbox"><span></span></label>
         </div>
-
         <div class="addon">
-          <div>
-            <div class="addon-title">Sales Programs</div>
-            <div class="addon-sub">Enablement in the flow of work</div>
-            <div class="pill">$100/user/mo</div>
-          </div>
+          <div><div class="addon-title">Sales Programs</div><div class="addon-sub">Enablement in the flow of work</div><div class="pill">$100/user/mo</div></div>
           <label class="switch"><input id="a_salesPrograms" type="checkbox"><span></span></label>
         </div>
-
         <div class="addon">
-          <div>
-            <div class="addon-title">Sales Emails & Alerts</div>
-            <div class="addon-sub">Email sends & notifications</div>
-            <div class="pill">$50/user/mo</div>
-          </div>
+          <div><div class="addon-title">Sales Emails & Alerts</div><div class="addon-sub">Email sends & notifications</div><div class="pill">$50/user/mo</div></div>
           <label class="switch"><input id="a_emailsAlerts" type="checkbox"><span></span></label>
         </div>
-
         <div class="addon" id="proApiRow" style="display:none;">
-          <div>
-            <div class="addon-title">Web Services API (Pro Suite)</div>
-            <div class="addon-sub">Enable integrations on Pro</div>
-            <div class="pill">$25/user/mo</div>
-          </div>
+          <div><div class="addon-title">Web Services API (Pro Suite)</div><div class="addon-sub">Enable integrations on Pro</div><div class="pill">$25/user/mo</div></div>
           <label class="switch"><input id="a_apiAddOn" type="checkbox"><span></span></label>
         </div>
-
         <div class="card col-2">
           <div class="grid grid-2">
-            <div class="field">
-              <label for="prmLogins">Partner logins (PRM)</label>
-              <input id="prmLogins" type="number" min="0" value="0" />
-            </div>
+            <div class="field"><label for="prmLogins">Partner logins (PRM)</label><input id="prmLogins" type="number" min="0" value="0" /></div>
             <div class="muted">PRM: $10 per partner login/month.</div>
           </div>
+        </div>
+      </div>
+
+      <hr/>
+
+      <!-- Agentforce (AI) section -->
+      <h3>Agentforce (AI) add-ons</h3>
+      <p class="muted small">If you’re not selecting the “Agentforce 1 Sales” edition, you can include AI estimates here.</p>
+      <div class="grid grid-3">
+        <div class="field row">
+          <label for="enableAgentforce">Include Agentforce add-on (estimate)</label>
+          <label class="switch"><input id="enableAgentforce" type="checkbox"><span></span></label>
+        </div>
+        <div class="field">
+          <label for="agentforcePerUser">Agentforce per-user / month (USD)</label>
+          <input id="agentforcePerUser" type="number" min="0" step="1" value="0" />
+        </div>
+        <div class="field">
+          <label for="agentforceOrg">Agentforce org-wide / month (USD)</label>
+          <input id="agentforceOrg" type="number" min="0" step="1" value="0" />
         </div>
       </div>
     </section>
@@ -166,52 +216,31 @@
     <section class="card span-3">
       <h2>Let us recommend a setup</h2>
       <div class="grid grid-3">
-        <div class="field">
-          <label for="teamSize">Team size</label>
-          <input id="teamSize" type="number" min="1" value="15" />
-        </div>
-        <div class="field">
-          <label for="quotingComplexity">Quoting complexity (0 simple → 2 complex)</label>
-          <input id="quotingComplexity" type="number" min="0" max="2" value="2" />
-        </div>
-        <div class="field">
-          <label for="forecastingMaturity">Forecasting maturity (0 basic → 2 advanced)</label>
-          <input id="forecastingMaturity" type="number" min="0" max="2" value="1" />
-        </div>
-        <div class="field">
-          <label for="fieldSales">Field sales intensity (0 none → 2 heavy)</label>
-          <input id="fieldSales" type="number" min="0" max="2" value="0" />
-        </div>
-        <div class="field">
-          <label for="outboundCadence">Outbound cadences (0 none → 2 with call reviews)</label>
-          <input id="outboundCadence" type="number" min="0" max="2" value="1" />
-        </div>
+        <div class="field"><label for="teamSize">Team size</label><input id="teamSize" type="number" min="1" value="15" /></div>
+        <div class="field"><label for="quotingComplexity">Quoting complexity (0 simple → 2 complex)</label><input id="quotingComplexity" type="number" min="0" max="2" value="2" /></div>
+        <div class="field"><label for="forecastingMaturity">Forecasting maturity (0 basic → 2 advanced)</label><input id="forecastingMaturity" type="number" min="0" max="2" value="1" /></div>
+        <div class="field"><label for="fieldSales">Field sales intensity (0 none → 2 heavy)</label><input id="fieldSales" type="number" min="0" max="2" value="0" /></div>
+        <div class="field"><label for="outboundCadence">Outbound cadences (0 none → 2 with call reviews)</label><input id="outboundCadence" type="number" min="0" max="2" value="1" /></div>
         <div class="field row">
           <label for="needIntegrationsAPI">Integrations/API needed</label>
           <label class="switch"><input id="needIntegrationsAPI" type="checkbox" checked><span></span></label>
         </div>
-        <div class="field">
-          <label for="aiPriority">AI priority (0 low → 2 high)</label>
-          <input id="aiPriority" type="number" min="0" max="2" value="1" />
-        </div>
-        <div class="field">
-          <label for="budgetSensitivity">Budget sensitivity (0 high budget → 2 cost sensitive)</label>
-          <input id="budgetSensitivity" type="number" min="0" max="2" value="1" />
-        </div>
+        <div class="field"><label for="aiPriority">AI priority (0 low → 2 high)</label><input id="aiPriority" type="number" min="0" max="2" value="1" /></div>
+        <div class="field"><label for="budgetSensitivity">Budget sensitivity (0 high budget → 2 cost sensitive)</label><input id="budgetSensitivity" type="number" min="0" max="2" value="1" /></div>
       </div>
       <div class="row">
         <button id="recommendBtn" class="btn">Recommend setup</button>
         <button id="copyBtn" class="btn ghost">Copy summary</button>
+        <button id="pdfBtn" class="btn secondary">Get PDF</button>
       </div>
       <p class="muted small">Recommendations use simple heuristics and public list prices. Final pricing varies by term, volume, promos, and region.</p>
     </section>
 
     <!-- Results -->
     <aside class="span-2">
-      <section class="card highlight">
+      <section class="card highlight" id="resultsCard">
         <h2>Estimated cost</h2>
         <div class="notice" id="personalizedLine">Hi there, here’s a ballpark for your company.</div>
-
         <div class="grid grid-2 small">
           <div><div class="muted">Edition</div><div id="outEdition" class="bold"></div></div>
           <div><div class="muted">Users</div><div id="outUsers" class="bold">15</div></div>
@@ -220,34 +249,12 @@
           <div><div class="muted">Success Plan / mo</div><div id="outSuccess" class="bold">$0</div></div>
           <div><div class="muted">One-time (impl.)</div><div id="outOneTime" class="bold">$0</div></div>
         </div>
-
         <hr/>
-
-        <div class="row space-between total">
-          <div class="muted">Monthly total</div>
-          <div id="outMonthly" class="big">$0</div>
-        </div>
-        <div class="row space-between total">
-          <div class="muted">Annual total</div>
-          <div id="outAnnual" class="big">$0</div>
-        </div>
-
-        <canvas id="breakdownChart" height="180"></canvas>
-
-        <p class="muted small">* List prices in USD. Salesforce typically bills annually. Taxes, promos, multi‑year terms, and AE‑negotiated discounts are not included.</p>
-      </section>
-
-      <section class="card">
-        <h2>Implementation package</h2>
-        <div class="field">
-          <select id="impl">
-            <option value="none">No Implementation Package</option>
-            <option value="basic">Quick Start — $10,000</option>
-            <option value="standard" selected>Standard — $25,000</option>
-            <option value="advanced">Advanced — $50,000</option>
-          </select>
-        </div>
-        <p class="muted small">These one-time estimates are placeholders for CRM Hacker offers. Adjust to your SKU playbook.</p>
+        <div class="row space-between total"><div class="muted">Monthly total</div><div id="outMonthly" class="big">$0</div></div>
+        <div class="row space-between total"><div class="muted">Annual total</div><div id="outAnnual" class="big">$0</div></div>
+        <!-- Smaller chart -->
+        <div style="height:140px"><canvas id="breakdownChart"></canvas></div>
+        <p class="muted small">* List prices in USD. Salesforce typically bills annually. Taxes, promos, multi-year terms, and AE-negotiated discounts are not included.</p>
       </section>
 
       <section class="card">
@@ -255,6 +262,7 @@
         <ul class="list small">
           <li>Sales Cloud editions: Starter, Pro, Enterprise, Unlimited, Agentforce 1 Sales</li>
           <li>Add-ons: Sales Engagement, Conversation Insights, Revenue Intelligence, Revenue Cloud, Maps, Sales Programs, PRM, Pro API add-on</li>
+          <li>Agentforce inputs are estimates so you can include AI spend if not on Agentforce 1 Sales.</li>
           <li>Premier Success Plan: +30% of net license (Unlimited includes Premier)</li>
         </ul>
       </section>
@@ -266,6 +274,229 @@
     <div class="right"><a href="https://crmhacker.com" target="_blank" rel="noopener">crmhacker.com</a></div>
   </footer>
 
-  <script type="module" src="./assets/main.js"></script>
+<script>
+/*** CONFIG: set this to your Web-to-Lead / webhook to capture the form when PDF is requested ***/
+const FORM_ENDPOINT = null; // e.g. "https://hooks.zapier.com/..." or your Salesforce Web-to-Lead endpoint
+
+/*** PRICING ***/
+const PRICING = {
+  editions: {
+    starter: { key:"starter", name:"Starter Suite", price:25, per:"user" },
+    pro: { key:"pro", name:"Pro Suite", price:100, per:"user" },
+    enterprise: { key:"enterprise", name:"Enterprise", price:175, per:"user" },
+    unlimited: { key:"unlimited", name:"Unlimited", price:350, per:"user" },
+    agentforce1: { key:"agentforce1", name:"Agentforce 1 Sales", price:550, per:"user" }
+  },
+  addons: {
+    apiAddOn: { key:"apiAddOn", name:"Web Services API (Pro Suite)", price:25, per:"user" },
+    salesEngagement: { key:"salesEngagement", name:"Sales Engagement", price:50, per:"user" },
+    conversationIntelligence: { key:"conversationIntelligence", name:"Einstein Conversation Insights", price:50, per:"user" },
+    revenueIntelligence: { key:"revenueIntelligence", name:"Revenue Intelligence", price:220, per:"user" },
+    revenueCloud: { key:"revenueCloud", name:"Revenue Cloud (CPQ/Billing)", price:200, per:"user" },
+    maps: { key:"maps", name:"Salesforce Maps", price:75, per:"user" },
+    salesPrograms: { key:"salesPrograms", name:"Sales Programs", price:100, per:"user" },
+    emailsAlerts: { key:"emailsAlerts", name:"Sales Emails & Alerts", price:50, per:"user" },
+    prmLogins: { key:"prmLogins", name:"Partner Relationship Management", price:10, per:"login" }
+  },
+  successPlans: {
+    standard: { key:"standard", name:"Standard (included)", rate:0 },
+    premier: { key:"premier", name:"Premier (+30% of license)", rate:0.3 },
+    signature: { key:"signature", name:"Signature (contact sales)", rate:null }
+  },
+  implementation: {
+    none:{ key:"none", name:"No Implementation Package", fee:0 },
+    basic:{ key:"basic", name:"Quick Start (CRM Hacker)", fee:10000 },
+    standard:{ key:"standard", name:"Standard (CRM Hacker)", fee:25000 },
+    advanced:{ key:"advanced", name:"Advanced (CRM Hacker)", fee:50000 }
+  }
+};
+const $ = (id) => document.getElementById(id);
+
+/*** STATE ***/
+const state = {
+  firstName:"", lastName:"", company:"", email:"",
+  users:15, edition:"enterprise", successPlan:"standard", impl:"standard",
+  addons:{
+    apiAddOn:false, salesEngagement:true, conversationIntelligence:false,
+    revenueIntelligence:true, revenueCloud:false, maps:false,
+    salesPrograms:false, emailsAlerts:false, prmLogins:0
+  },
+  agentforce:{ enabled:false, perUser:0, orgMonthly:0 },
+  signals:{
+    teamSize:15, quotingComplexity:2, forecastingMaturity:1, fieldSales:0,
+    outboundCadence:1, needIntegrationsAPI:true, aiPriority:1, budgetSensitivity:1
+  }
+};
+
+function currency(n){ return n.toLocaleString(undefined,{style:"currency",currency:"USD",maximumFractionDigits:0}); }
+
+function compute(){
+  const editionPrice = PRICING.editions[state.edition].price;
+  const perUserAddOns = [];
+  if (state.addons.salesEngagement) perUserAddOns.push(PRICING.addons.salesEngagement);
+  if (state.addons.conversationIntelligence) perUserAddOns.push(PRICING.addons.conversationIntelligence);
+  if (state.addons.revenueIntelligence) perUserAddOns.push(PRICING.addons.revenueIntelligence);
+  if (state.addons.revenueCloud) perUserAddOns.push(PRICING.addons.revenueCloud);
+  if (state.addons.maps) perUserAddOns.push(PRICING.addons.maps);
+  if (state.addons.salesPrograms) perUserAddOns.push(PRICING.addons.salesPrograms);
+  if (state.addons.emailsAlerts) perUserAddOns.push(PRICING.addons.emailsAlerts);
+  if (state.edition === "pro" && state.addons.apiAddOn) perUserAddOns.push(PRICING.addons.apiAddOn);
+
+  const licenseMonthly = state.users * editionPrice;
+  let addonsMonthly = perUserAddOns.reduce((sum,a)=> sum + state.users*a.price, 0) + (state.addons.prmLogins||0) * PRICING.addons.prmLogins.price;
+
+  // Agentforce add if enabled and not Agentforce 1 edition
+  if (state.agentforce.enabled && state.edition !== "agentforce1"){
+    addonsMonthly += (state.agentforce.perUser * state.users) + state.agentforce.orgMonthly;
+  }
+
+  let successRate = PRICING.successPlans[state.successPlan].rate || 0;
+  if (state.edition === "unlimited" && state.successPlan === "premier") successRate = 0; // Unlimited includes Premier
+  const successMonthly = (licenseMonthly + addonsMonthly) * successRate;
+
+  const monthlyTotal = licenseMonthly + addonsMonthly + successMonthly;
+  const annualTotal = monthlyTotal * 12;
+  const oneTime = PRICING.implementation[state.impl].fee;
+  return { licenseMonthly, addonsMonthly, successMonthly, monthlyTotal, annualTotal, oneTime };
+}
+
+function recommend(){
+  const s = state.signals;
+  let nextEdition = state.edition;
+  if (s.aiPriority === 2 && s.teamSize >= 25) nextEdition = "agentforce1";
+  else if (s.quotingComplexity === 2 || s.needIntegrationsAPI) nextEdition = "enterprise";
+  else if (s.teamSize <= 10 && s.budgetSensitivity === 2) nextEdition = "starter";
+  else if (s.teamSize <= 20 && s.budgetSensitivity >= 1) nextEdition = "pro";
+  else nextEdition = "enterprise";
+
+  state.edition = nextEdition; $("edition").value = nextEdition;
+  state.users = Number(s.teamSize); $("users").value = state.users;
+
+  state.addons.salesEngagement = s.outboundCadence >= 1; $("a_salesEngagement").checked = state.addons.salesEngagement;
+  state.addons.conversationIntelligence = s.outboundCadence === 2; $("a_conversationIntelligence").checked = state.addons.conversationIntelligence;
+  state.addons.revenueIntelligence = s.forecastingMaturity >= 1; $("a_revenueIntelligence").checked = state.addons.revenueIntelligence;
+  state.addons.revenueCloud = s.quotingComplexity === 2; $("a_revenueCloud").checked = state.addons.revenueCloud;
+  state.addons.maps = s.fieldSales >= 1; $("a_maps").checked = state.addons.maps;
+  state.addons.salesPrograms = s.outboundCadence >= 1 && s.teamSize >= 15; $("a_salesPrograms").checked = state.addons.salesPrograms;
+  state.addons.apiAddOn = (state.edition === "pro" && s.needIntegrationsAPI); $("a_apiAddOn").checked = state.addons.apiAddOn;
+  render();
+}
+
+let chart;
+function updateChart(out){
+  const ctx = $("breakdownChart").getContext("2d");
+  const data = {
+    labels:["Licenses","Add-ons","Success Plan"],
+    datasets:[{ data:[Math.round(out.licenseMonthly), Math.round(out.addonsMonthly), Math.round(out.successMonthly)],
+      backgroundColor:["#10b981","#0ea5e9","#a78bfa"] }]
+  };
+  const options = { plugins:{ legend:{ position:"bottom" } }, maintainAspectRatio:false };
+  if (chart){ chart.data = data; chart.update(); }
+  else { chart = new Chart(ctx, { type:"doughnut", data, options }); }
+}
+
+function render(){
+  $("proApiRow").style.display = state.edition === "pro" ? "flex" : "none";
+  const out = compute();
+  $("outEdition").textContent = PRICING.editions[state.edition].name;
+  $("outUsers").textContent = state.users;
+  $("outLicenses").textContent = currency(out.licenseMonthly);
+  $("outAddons").textContent = currency(out.addonsMonthly);
+  $("outSuccess").textContent = currency(out.successMonthly);
+  $("outOneTime").textContent = currency(out.oneTime);
+  $("outMonthly").textContent = currency(out.monthlyTotal);
+  $("outAnnual").textContent = currency(out.annualTotal);
+  const name = state.firstName ? `Hey ${state.firstName}` : "Hi there";
+  const org = state.company || "your company";
+  const email = state.email || "(add email)";
+  $("personalizedLine").textContent = `${name}, here’s a ballpark for ${org}. We’ll email you a copy at ${email} if you hit copy.`;
+  updateChart(out);
+}
+
+function copySummary(){
+  const out = compute();
+  const addonsList = Object.entries(state.addons)
+    .filter(([k,v]) => k !== "prmLogins" ? !!v : v > 0)
+    .map(([k,v]) => k === "prmLogins" ? `${PRICING.addons.prmLogins.name} x ${v}` : PRICING.addons[k].name)
+    .join(", ") || "None";
+  const aforce = (state.agentforce.enabled && state.edition !== "agentforce1")
+    ? `; Agentforce add-on included: ${currency(state.agentforce.perUser)}/user/mo + ${currency(state.agentforce.orgMonthly)}/org/mo` : "";
+  const lines = [
+    `${state.firstName ? state.firstName + "," : ""} Here’s your Salesforce estimate for ${state.company || "your company"}:`,
+    `Edition: ${PRICING.editions[state.edition].name} (${currency(PRICING.editions[state.edition].price)}/user/mo)`,
+    `Users: ${state.users}`,
+    `Add-ons: ${addonsList}${aforce}`,
+    `Success Plan: ${PRICING.successPlans[state.successPlan].name}`,
+    ``,
+    `Monthly Total: ${currency(out.monthlyTotal)} (Licenses ${currency(out.licenseMonthly)} + Add-ons ${currency(out.addonsMonthly)} + Success ${currency(out.successMonthly)})`,
+    `Annual Total: ${currency(out.annualTotal)}`,
+    `One-time (Implementation): ${currency(out.oneTime)}`,
+    ``,
+    `Disclaimer: Estimates only. Salesforce bills annually; taxes/discounts not included.`
+  ].join("\n");
+  navigator.clipboard.writeText(lines).catch(()=>{});
+}
+
+async function exportPDF(){
+  const required = ["firstName","lastName","company","email"];
+  for (const id of required){
+    const val = $(id).value?.trim();
+    if (!val){ alert("Please complete First name, Last name, Company, and Email to receive the PDF."); return; }
+  }
+  // Optional: send lead to your endpoint
+  if (FORM_ENDPOINT){
+    try {
+      await fetch(FORM_ENDPOINT, {
+        method:"POST", headers:{ "Content-Type":"application/json" },
+        body: JSON.stringify({
+          firstName:$("firstName").value, lastName:$("lastName").value,
+          company:$("company").value, email:$("email").value,
+          users:state.users, edition:state.edition, successPlan:state.successPlan,
+          impl:state.impl, addons:state.addons, agentforce:state.agentforce, totals:compute()
+        })
+      });
+    } catch(e){ console.warn("Form endpoint error:", e); }
+  }
+  const { jsPDF } = window.jspdf;
+  const pdf = new jsPDF({ unit:"pt", format:"a4" });
+  pdf.setFont("helvetica","bold"); pdf.setFontSize(18);
+  pdf.text("CRM Hacker — Salesforce Pricing Estimate", 40, 40);
+  pdf.setFont("helvetica","normal"); pdf.setFontSize(11);
+  pdf.text(`Prepared for: ${$("firstName").value} ${$("lastName").value} — ${$("company").value}`, 40, 60);
+  pdf.text(`Email: ${$("email").value}`, 40, 76);
+  const card = document.getElementById("resultsCard");
+  card.classList.add("exporting");
+  const canvas = await html2canvas(card, { scale: 2, backgroundColor:"#ffffff" });
+  card.classList.remove("exporting");
+  const img = canvas.toDataURL("image/png");
+  const imgWidth = 515;
+  const imgHeight = canvas.height * (imgWidth / canvas.width);
+  pdf.addImage(img, "PNG", 40, 100, imgWidth, imgHeight);
+  pdf.save("CRM-Hacker-Salesforce-Pricing-Estimate.pdf");
+}
+
+function initBindings(){
+  ["firstName","lastName","company","email"].forEach(id => { $(id).addEventListener("input", e => { state[id]=e.target.value; render(); }); });
+  $("users").addEventListener("input", e => { state.users=Math.max(1, Number(e.target.value||1)); render(); });
+  $("edition").addEventListener("change", e => { state.edition=e.target.value; render(); });
+  $("successPlan").addEventListener("change", e => { state.successPlan=e.target.value; render(); });
+  $("impl").addEventListener("change", e => { state.impl=e.target.value; render(); });
+  ["salesEngagement","conversationIntelligence","revenueIntelligence","revenueCloud","maps","salesPrograms","emailsAlerts","apiAddOn"].forEach(key=>{
+    const el = $("a_"+key); if (el) el.addEventListener("change", e=>{ state.addons[key]=e.target.checked; render(); });
+  });
+  $("prmLogins").addEventListener("input", e=>{ state.addons.prmLogins=Math.max(0, Number(e.target.value||0)); render(); });
+  $("enableAgentforce").addEventListener("change", e=>{ state.agentforce.enabled=e.target.checked; render(); });
+  $("agentforcePerUser").addEventListener("input", e=>{ state.agentforce.perUser=Math.max(0, Number(e.target.value||0)); render(); });
+  $("agentforceOrg").addEventListener("input", e=>{ state.agentforce.orgMonthly=Math.max(0, Number(e.target.value||0)); render(); });
+  ["teamSize","quotingComplexity","forecastingMaturity","fieldSales","outboundCadence","aiPriority","budgetSensitivity"].forEach(id=>{
+    $(id).addEventListener("input", e=>{ state.signals[id]=Number(e.target.value||0); });
+  });
+  $("needIntegrationsAPI").addEventListener("change", e=>{ state.signals.needIntegrationsAPI=e.target.checked; });
+  $("recommendBtn").addEventListener("click", recommend);
+  $("copyBtn").addEventListener("click", copySummary);
+  $("pdfBtn").addEventListener("click", exportPDF);
+}
+document.addEventListener("DOMContentLoaded", ()=>{ initBindings(); render(); });
+</script>
 </body>
 </html>
